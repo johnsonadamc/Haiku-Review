@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Haiku Review</title>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;500;600&family=Zen+Old+Mincho:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --p:#f5f0e8;
+  --p2:#ede6d6;
+  --ink:#1e1a14;
+  --inks:#6b6050;
+  --inkf:#9e9080;
+  --seal:#8b2a1a;
+  --sealr:rgba(139,42,26,0.1);
+  --gold:#8a6a2a;
+  --water:#d2d6db;
+  --land:#f0ebe0;
+  --shore:rgba(30,26,20,0.18);
+  --M:'Shippori Mincho',serif;
+  --OM:'Zen Old Mincho',serif;
+}
+html,body{height:100%;overflow:hidden;background:var(--p);color:var(--ink);font-family:var(--M);}
+
+/* ── GRAIN OVERLAY ── */
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;opacity:0.038;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size:180px;mix-blend-mode:multiply;}
+
+/* ── STAGE ── */
+#stage{position:fixed;inset:0;z-index:0;overflow:hidden;}
+#bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1.4s ease;filter:saturate(0.6) brightness(1.12) contrast(0.88);}
+#bg.vis{opacity:1;}
+#bgp{position:absolute;inset:0;z-index:0;}
+#wash{position:absolute;inset:0;z-index:1;background:linear-gradient(to top,rgba(245,240,232,0.97) 0%,rgba(245,240,232,0.88) 22%,rgba(245,240,232,0.62) 48%,rgba(245,240,232,0.2) 72%,rgba(245,240,232,0.04) 100%);}
+
+/* ── WORDMARK ── */
+#wm{position:fixed;top:30px;left:36px;z-index:100;display:flex;flex-direction:column;align-items:flex-start;gap:5px;}
+.wm-a{font-family:var(--OM);font-size:13px;color:var(--ink);opacity:0.5;letter-spacing:0.38em;text-transform:uppercase;}
+.wm-r{width:24px;height:1px;background:var(--gold);opacity:0.6;}
+.wm-b{font-family:var(--M);font-size:10px;color:var(--inks);letter-spacing:0.3em;text-transform:uppercase;}
+
+/* ── TOP RIGHT ── */
+#tr{position:fixed;top:28px;right:36px;z-index:100;}
+.cb{background:none;border:none;cursor:pointer;font-family:var(--M);font-size:11px;color:var(--inks);opacity:0.65;transition:opacity 0.2s;letter-spacing:0.18em;text-transform:uppercase;}
+.cb:hover{opacity:1;}
+
+/* ── COLLECTION INFO ── */
+#ci{position:fixed;top:50%;right:32px;transform:translateY(-50%);z-index:10;writing-mode:vertical-rl;font-family:var(--M);font-size:9px;letter-spacing:0.25em;color:var(--inkf);opacity:0.5;text-transform:uppercase;display:flex;align-items:center;gap:10px;}
+#ci::before{content:'';display:block;width:1px;height:28px;background:var(--gold);opacity:0.4;flex-shrink:0;}
+
+/* ── JOURNEY BAR ── */
+#jbar{position:fixed;top:0;left:0;z-index:200;height:2px;background:var(--gold);opacity:0;transition:width 0.6s ease,opacity 0.4s;pointer-events:none;width:0;}
+#jbar.on{opacity:0.45;}
+
+/* ── THREAD LABEL ── */
+#tlab{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:15;pointer-events:none;text-align:center;opacity:0;transition:opacity 0.6s;}
+#tlab.vis{opacity:1;}
+#tlab-type{display:block;font-family:var(--M);font-size:9px;letter-spacing:0.3em;color:var(--gold);text-transform:uppercase;margin-bottom:8px;opacity:0.9;}
+#tlab-text{display:block;font-family:var(--M);font-size:12px;letter-spacing:0.18em;color:var(--inks);text-transform:uppercase;}
+
+/* ── HOLD RING ── */
+#hring{position:fixed;inset:0;z-index:12;pointer-events:none;display:flex;align-items:center;justify-content:center;}
+.ripple{width:64px;height:64px;border-radius:50%;border:1px solid var(--gold);position:absolute;opacity:0;transform:scale(0.5);}
+@keyframes ripout{0%{opacity:0.5;transform:scale(0.5);}100%{opacity:0;transform:scale(2.8);}}
+.ripple.go{animation:ripout 0.7s ease-out forwards;}
+#hhint{position:fixed;bottom:52px;left:50%;transform:translateX(-50%);z-index:12;pointer-events:none;font-family:var(--M);font-size:9px;letter-spacing:0.22em;text-transform:uppercase;color:var(--gold);opacity:0;transition:opacity 0.3s;white-space:nowrap;}
+#hhint.vis{opacity:0.65;}
+
+/* ── HAIKU STAGE ── */
+#hs{position:fixed;bottom:0;left:0;right:0;z-index:10;padding:0 60px 58px 52px;pointer-events:none;}
+
+#ltag{font-family:var(--M);font-size:10px;color:var(--inks);opacity:0;margin-bottom:16px;display:inline-flex;align-items:center;gap:10px;transition:opacity 0.9s;letter-spacing:0.28em;text-transform:uppercase;cursor:pointer;pointer-events:all;}
+#ltag.vis{opacity:0.68;}
+#ltag::before{content:'';display:block;width:20px;height:1px;background:var(--gold);flex-shrink:0;opacity:0.9;transition:width 0.3s;}
+#ltag:hover{opacity:1!important;color:var(--ink);}
+#ltag:hover::before{width:32px;}
+#ltag:hover .la{opacity:1;transform:translateX(3px);}
+.la{opacity:0;transition:opacity 0.2s,transform 0.2s;margin-left:-4px;}
+
+#hlines{display:flex;flex-direction:column;gap:0;margin-bottom:20px;}
+.hl{font-family:var(--M);color:var(--ink);opacity:0;transform:translateY(12px);transition:opacity 1s cubic-bezier(0.22,1,0.36,1),transform 1s cubic-bezier(0.22,1,0.36,1);line-height:1.2;display:block;white-space:nowrap;text-shadow:0 1px 4px rgba(245,240,232,0.55);}
+.hl.rev{opacity:1;transform:translateY(0);}
+#l0{font-size:clamp(22px,3vw,42px);font-weight:500;}
+#l1{font-size:clamp(19px,2.6vw,37px);font-weight:400;padding-left:clamp(10px,1.4vw,20px);}
+#l2{font-size:clamp(17px,2.3vw,33px);font-weight:400;padding-left:clamp(20px,2.8vw,38px);}
+
+#atag{font-family:var(--M);font-size:11px;color:var(--inks);opacity:0;transition:opacity 0.8s;letter-spacing:0.2em;white-space:nowrap;margin-bottom:8px;}
+#atag.vis{opacity:0.5;}
+#hholdhint{font-family:var(--M);font-size:9px;color:var(--inkf);opacity:0;transition:opacity 1s;letter-spacing:0.18em;text-transform:uppercase;pointer-events:none;}
+#hholdhint.vis{opacity:0.32;}
+
+/* ── NAV ── */
+#nav{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);z-index:20;display:flex;align-items:center;gap:4px;}
+.nb{background:none;border:none;cursor:pointer;padding:8px 16px;color:var(--inks);opacity:0.38;transition:opacity 0.2s,transform 0.15s;display:flex;align-items:center;gap:7px;font-family:var(--M);font-size:10px;letter-spacing:0.22em;text-transform:uppercase;}
+.nb:hover{opacity:1;}.nb:active{transform:scale(0.96);}
+.nb svg{transition:transform 0.2s;}
+.nb:hover .al{transform:translateX(-3px);}.nb:hover .ar{transform:translateX(3px);}
+#ns{width:1px;height:14px;background:var(--gold);opacity:0.3;}
+#pc{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);font-family:var(--M);font-size:9px;color:var(--inkf);opacity:0.5;z-index:20;white-space:nowrap;letter-spacing:0.28em;}
+
+/* ── JOURNEY EXIT ── */
+#jexit{position:fixed;left:36px;bottom:30px;z-index:20;background:none;border:none;padding:8px 0;cursor:pointer;font-family:var(--M);font-size:10px;color:var(--inks);letter-spacing:0.18em;text-transform:uppercase;opacity:0;pointer-events:none;transition:opacity 0.4s;display:flex;align-items:center;gap:6px;}
+#jexit.on{opacity:0.5;pointer-events:all;}#jexit:hover{opacity:1;}
+
+/* ── MAP OVERLAY ── */
+#map{position:fixed;inset:0;z-index:200;background:var(--p);opacity:0;pointer-events:none;transition:opacity 0.5s ease;display:flex;flex-direction:column;}
+#map.open{opacity:1;pointer-events:all;}
+#mhdr{position:absolute;top:0;left:0;right:0;z-index:10;padding:28px 36px 20px;display:flex;justify-content:space-between;align-items:flex-start;pointer-events:none;}
+.mht{display:flex;flex-direction:column;gap:5px;}
+.mhta{font-family:var(--OM);font-size:12px;color:var(--ink);opacity:0.4;letter-spacing:0.4em;text-transform:uppercase;}
+.mhtr{width:20px;height:1px;background:var(--gold);opacity:0.55;}
+.mhtb{font-family:var(--M);font-size:9px;color:var(--inks);letter-spacing:0.28em;text-transform:uppercase;opacity:0.65;}
+#mcls{background:none;border:none;cursor:pointer;font-family:var(--M);font-size:11px;color:var(--inks);opacity:0.35;letter-spacing:0.18em;text-transform:uppercase;transition:opacity 0.2s;pointer-events:all;}
+#mcls:hover{opacity:1;}
+#mwrap{position:absolute;inset:0;overflow:hidden;cursor:grab;}
+#mwrap:active{cursor:grabbing;}
+#mcanvas{display:block;}
+#mtt{position:absolute;z-index:20;pointer-events:none;background:var(--p);border:1px solid rgba(30,26,20,0.12);padding:10px 16px;box-shadow:0 2px 12px rgba(30,26,20,0.1);opacity:0;transition:opacity 0.2s;max-width:220px;}
+#mtt.vis{opacity:1;}
+.ttn{font-family:var(--M);font-size:14px;color:var(--ink);margin-bottom:3px;}
+.ttc{font-family:var(--M);font-size:10px;color:var(--inkf);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:6px;}
+.ttr{width:16px;height:1px;background:var(--gold);opacity:0.6;margin-bottom:8px;}
+.ttk{font-family:var(--M);font-size:10px;color:var(--gold);letter-spacing:0.12em;}
+#mftr{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);font-family:var(--M);font-size:10px;color:var(--inkf);letter-spacing:0.2em;text-transform:uppercase;opacity:0.35;white-space:nowrap;pointer-events:none;}
+#mbadge{position:absolute;bottom:24px;right:36px;font-family:var(--M);font-size:8px;color:var(--inkf);letter-spacing:0.15em;text-transform:uppercase;opacity:0.25;border:1px solid rgba(30,26,20,0.1);padding:4px 8px;pointer-events:none;}
+
+/* ── JOURNEY LOADING ── */
+#jload{position:fixed;inset:0;z-index:250;display:flex;align-items:center;justify-content:center;background:rgba(245,240,232,0.88);backdrop-filter:blur(12px);opacity:0;pointer-events:none;transition:opacity 0.3s;flex-direction:column;gap:16px;}
+#jload.vis{opacity:1;pointer-events:all;}
+.jlt{font-family:var(--M);font-size:11px;letter-spacing:0.28em;text-transform:uppercase;color:var(--inks);opacity:0.7;}
+.jlb{width:48px;height:1px;background:var(--gold);}
+@keyframes jlp{0%,100%{opacity:0.2;width:20px;}50%{opacity:1;width:56px;}}
+.jlb{animation:jlp 1.5s ease-in-out infinite;}
+
+/* ── SUBMIT PANEL ── */
+#sub{position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;background:rgba(237,230,214,0.94);backdrop-filter:blur(24px);opacity:0;pointer-events:none;transition:opacity 0.32s;}
+#sub.open{opacity:1;pointer-events:all;}
+.sc{background:var(--p);border:1px solid rgba(30,26,20,0.1);width:min(520px,94vw);max-height:90vh;overflow-y:auto;padding:44px 42px 36px;box-shadow:0 2px 0 rgba(30,26,20,0.05),0 24px 64px rgba(30,26,20,0.12);}
+.sc::before{content:'';display:block;width:28px;height:1px;background:var(--gold);margin-bottom:18px;opacity:0.75;}
+.sc h2{font-family:var(--OM);font-size:22px;color:var(--ink);margin-bottom:4px;font-weight:400;letter-spacing:0.35em;text-transform:uppercase;}
+.sc .sub{font-family:var(--M);font-size:11px;letter-spacing:0.2em;color:var(--inks);margin-bottom:32px;display:block;}
+.fi{margin-bottom:22px;}
+.fi label{display:block;font-family:var(--M);font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:var(--inkf);margin-bottom:8px;}
+.fi input,.fi textarea{width:100%;background:transparent;border:none;border-bottom:1px solid rgba(30,26,20,0.16);color:var(--ink);font-family:var(--M);font-size:18px;padding:8px 0;outline:none;transition:border-color 0.25s;appearance:none;border-radius:0;letter-spacing:0.03em;}
+.fi input::placeholder,.fi textarea::placeholder{color:rgba(30,26,20,0.2);}
+.fi input:focus,.fi textarea:focus{border-bottom-color:var(--seal);}
+.fi textarea{resize:none;line-height:2.1;min-height:112px;background-image:repeating-linear-gradient(transparent,transparent calc(2.1em - 1px),rgba(30,26,20,0.065) calc(2.1em - 1px),rgba(30,26,20,0.065) 2.1em);background-attachment:local;padding:4px 0;border-bottom:1px solid rgba(30,26,20,0.16);}
+.syr{display:flex;gap:6px;margin-top:9px;}
+.syp{flex:1;height:1.5px;background:rgba(30,26,20,0.1);transition:background 0.35s;border-radius:1px;}
+.syp.ok{background:#5a8040;}.syp.bad{background:var(--seal);}
+#pz{border:1px solid rgba(30,26,20,0.11);padding:26px;text-align:center;cursor:pointer;transition:border-color 0.25s,background 0.2s;overflow:hidden;position:relative;background:rgba(30,26,20,0.015);}
+#pz::before,#pz::after{content:'';position:absolute;width:10px;height:10px;border-color:var(--gold);border-style:solid;opacity:0.38;}
+#pz::before{top:8px;left:8px;border-width:1px 0 0 1px;}
+#pz::after{bottom:8px;right:8px;border-width:0 1px 1px 0;}
+#pz:hover{border-color:rgba(139,42,26,0.3);}
+#pz.has{padding:0;border-color:rgba(139,42,26,0.28);}
+#pz.has::before,#pz.has::after{display:none;}
+#pz img{width:100%;max-height:190px;object-fit:cover;display:block;}
+.pzl{font-family:var(--M);font-size:10px;letter-spacing:0.25em;color:var(--inkf);margin-top:6px;text-transform:uppercase;}
+.pzi{font-size:16px;opacity:0.16;margin-bottom:5px;color:var(--ink);}
+#fin{display:none;}
+.r2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+#psr{position:relative;}
+#psres{position:absolute;top:100%;left:0;right:0;background:var(--p);border:1px solid rgba(30,26,20,0.12);border-top:none;z-index:10;max-height:200px;overflow-y:auto;display:none;}
+#psres.open{display:block;}
+.psi{padding:10px 12px;cursor:pointer;border-bottom:1px solid rgba(30,26,20,0.06);transition:background 0.15s;}
+.psi:hover{background:rgba(30,26,20,0.04);}
+.psn{font-family:var(--M);font-size:16px;color:var(--ink);}
+.psc{font-family:var(--M);font-size:10px;color:var(--inkf);letter-spacing:0.12em;margin-top:2px;}
+.sa{display:flex;justify-content:space-between;align-items:center;margin-top:30px;padding-top:22px;border-top:1px solid rgba(30,26,20,0.07);}
+.bcnc{background:none;border:none;font-family:var(--M);font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:var(--inks);cursor:pointer;transition:color 0.2s;}
+.bcnc:hover{color:var(--ink);}
+.bpub{background:none;border:1px solid rgba(139,42,26,0.4);color:var(--seal);font-family:var(--M);font-size:11px;padding:10px 28px;cursor:pointer;transition:all 0.25s;letter-spacing:0.28em;text-transform:uppercase;}
+.bpub:hover{background:var(--seal);color:var(--p);border-color:var(--seal);}
+
+/* ── POST SUBMIT MOMENT ── */
+#psm{position:fixed;inset:0;z-index:310;display:flex;align-items:flex-end;justify-content:flex-start;padding:0 0 80px 52px;background:rgba(245,240,232,0.0);pointer-events:none;opacity:0;transition:opacity 0.5s;}
+#psm.vis{opacity:1;}
+.psm-inner{pointer-events:none;}
+.psm-label{font-family:var(--M);font-size:10px;letter-spacing:0.28em;text-transform:uppercase;color:var(--inks);opacity:0.6;margin-bottom:14px;display:flex;align-items:center;gap:10px;}
+.psm-label::before{content:'';display:block;width:20px;height:1px;background:var(--gold);}
+.psm-haiku{font-family:var(--M);color:var(--ink);font-size:clamp(18px,2.5vw,32px);line-height:1.3;font-style:italic;}
+
+/* ── TOAST ── */
+#toast{position:fixed;top:28px;left:50%;transform:translateX(-50%) translateY(-14px);background:var(--p);border:1px solid rgba(30,26,20,0.1);box-shadow:0 4px 20px rgba(30,26,20,0.09);padding:8px 24px;font-family:var(--M);font-size:11px;letter-spacing:0.25em;text-transform:uppercase;color:var(--inks);opacity:0;transition:all 0.3s cubic-bezier(0.22,1,0.36,1);z-index:1000;pointer-events:none;white-space:nowrap;}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ── WIPE ── */
+#wipe{position:fixed;inset:0;background:var(--p2);z-index:50;opacity:0;pointer-events:none;transition:opacity 0.38s ease;}
+#wipe.on{opacity:1;pointer-events:all;}
+
+::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:rgba(30,26,20,0.12);}
+
+@media(max-width:600px){
+  #hs{padding:0 20px 92px 24px;}#ci{display:none;}
+  .sc{padding:32px 22px 28px;}.r2{grid-template-columns:1fr;}
+  #l0{font-size:20px;}#l1{font-size:17px;padding-left:8px;}#l2{font-size:15px;padding-left:16px;}
+}
+</style>
+</head>
+<body>
+
+<div id="wipe"></div>
+
+<!-- STAGE -->
+<div id="stage">
+  <div id="bgp"></div>
+  <img id="bg" alt="">
+  <div id="wash"></div>
+</div>
+
+<!-- WORDMARK -->
+<div id="wm">
+  <span class="wm-a">Haiku</span>
+  <div class="wm-r"></div>
+  <span class="wm-b">Review</span>
+</div>
+
+<!-- SUBMIT BTN -->
+<div id="tr"><button class="cb" onclick="openSub()">+ Submit</button></div>
+
+<!-- COLLECTION INFO -->
+<div id="ci"></div>
+
+<!-- JOURNEY BAR + THREAD -->
+<div id="jbar"></div>
+<div id="tlab"><span id="tlab-type"></span><span id="tlab-text"></span></div>
+
+<!-- HOLD RING -->
+<div id="hring"><div class="ripple" id="rip"></div></div>
+<div id="hhint">hold to remember</div>
+
+<!-- JOURNEY LOADING -->
+<div id="jload"><div class="jlt">Finding connections</div><div class="jlb"></div></div>
+
+<!-- HAIKU STAGE -->
+<div id="hs">
+  <div id="ltag" onclick="openMap()">
+    <span id="ltxt"></span>
+    <span class="la">›</span>
+  </div>
+  <div id="hlines">
+    <div class="hl" id="l0"></div>
+    <div class="hl" id="l1"></div>
+    <div class="hl" id="l2"></div>
+  </div>
+  <div id="atag"></div>
+  <div id="hholdhint">hold anywhere · to remember this</div>
+</div>
+
+<!-- NAV -->
+<div id="nav">
+  <button class="nb" onclick="nav(-1)">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" class="al"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    prev
+  </button>
+  <div id="ns"></div>
+  <button class="nb" onclick="nav(1)">
+    next
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" class="ar"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+  </button>
+</div>
+<div id="pc"></div>
+<button id="jexit" onclick="exitJourney()">
+  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+  all haikus
+</button>
+
+<!-- MAP -->
+<div id="map">
+  <div id="mhdr">
+    <div class="mht">
+      <span class="mhta">Places</span>
+      <div class="mhtr"></div>
+      <span class="mhtb">tap a place · claude charts your journey</span>
+    </div>
+    <button id="mcls" onclick="closeMap()">close</button>
+  </div>
+  <div id="mwrap"><canvas id="mcanvas"></canvas></div>
+  <div id="mtt"><div class="ttn" id="ttn"></div><div class="ttc" id="ttc"></div><div class="ttr"></div><div class="ttk" id="ttk"></div></div>
+  <div id="mftr">drag to explore · tap a place to begin a journey</div>
+  <div id="mbadge">map · mapbox ready</div>
+</div>
+
+<!-- SUBMIT -->
+<div id="sub">
+  <div class="sc">
+    <h2>Submit</h2>
+    <span class="sub">5 · 7 · 5 — one photo, one place, one moment</span>
+    <div class="fi">
+      <label>Photo</label>
+      <div id="pz" onclick="document.getElementById('fin').click()">
+        <div class="pzi">◻</div>
+        <div class="pzl">tap to upload</div>
+      </div>
+      <input type="file" id="fin" accept="image/*" onchange="onFile(event)">
+    </div>
+    <div class="r2">
+      <div class="fi"><label>Your name</label><input type="text" id="fa" placeholder="anonymous" maxlength="30"></div>
+      <div class="fi">
+        <label>Specific place</label>
+        <div id="psr">
+          <input type="text" id="fp" placeholder="Fushimi Inari Shrine…" autocomplete="off" oninput="searchP(this.value)">
+          <div id="psres"></div>
+        </div>
+      </div>
+    </div>
+    <div class="fi">
+      <label>Haiku — three lines</label>
+      <textarea id="fh" placeholder="first gate, still shut&#10;a child counts stone lanterns&#10;the moss does not wait" oninput="chkSyl()"></textarea>
+      <div class="syr"><div class="syp" id="sy0"></div><div class="syp" id="sy1"></div><div class="syp" id="sy2"></div></div>
+    </div>
+    <div class="sa">
+      <button class="bcnc" onclick="closeSub()">never mind</button>
+      <button class="bpub" onclick="doSub()">Publish</button>
+    </div>
+  </div>
+</div>
+
+<!-- POST-SUBMIT MOMENT -->
+<div id="psm">
+  <div class="psm-inner">
+    <div class="psm-label" id="psm-loc"></div>
+    <div class="psm-haiku" id="psm-h"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── SVG SCENES ──
+function svg(k){
+  const S={
+    kyoto:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600"><defs><radialGradient id="sk" cx="50%" cy="30%" r="70%"><stop offset="0%" stop-color="#d4cfc0"/><stop offset="100%" stop-color="#a8a090"/></radialGradient><radialGradient id="ms" cx="50%" cy="60%" r="60%"><stop offset="0%" stop-color="#e8e4da" stop-opacity="0.7"/><stop offset="100%" stop-color="#e8e4da" stop-opacity="0"/></radialGradient></defs><rect width="900" height="600" fill="url(#sk)"/><rect y="320" width="900" height="280" fill="#6b7860" opacity="0.6"/><rect y="380" width="900" height="220" fill="#4a5440" opacity="0.8"/><ellipse cx="450" cy="480" rx="280" ry="60" fill="#8a9a88" opacity="0.5"/><ellipse cx="450" cy="480" rx="200" ry="40" fill="#a0b09e" opacity="0.4"/><rect x="415" y="340" width="70" height="8" fill="#7a7060" opacity="0.9"/><rect x="425" y="260" width="50" height="80" fill="#8a8070" opacity="0.9"/><polygon points="420,260 480,260 490,245 410,245" fill="#7a7060" opacity="0.9"/><rect x="430" y="230" width="40" height="15" fill="#6a6050" opacity="0.9"/><rect x="120" y="220" width="18" height="200" fill="#3a4030" opacity="0.8"/><ellipse cx="129" cy="200" rx="55" ry="80" fill="#4a5840" opacity="0.75"/><rect x="740" y="240" width="16" height="180" fill="#3a4030" opacity="0.8"/><ellipse cx="748" cy="220" rx="50" ry="75" fill="#4a5840" opacity="0.75"/><rect width="900" height="600" fill="url(#ms)"/><ellipse cx="450" cy="480" rx="40" ry="8" fill="none" stroke="#c0d0be" stroke-width="1" opacity="0.6"/><ellipse cx="450" cy="480" rx="80" ry="14" fill="none" stroke="#b0c0ae" stroke-width="0.8" opacity="0.4"/></svg>`,
+    nyc:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600"><defs><radialGradient id="gl" cx="30%" cy="80%" r="50%"><stop offset="0%" stop-color="#c8a060" stop-opacity="0.5"/><stop offset="100%" stop-color="#c8a060" stop-opacity="0"/></radialGradient></defs><rect width="900" height="600" fill="#1a1c24"/><rect x="0" y="80" width="120" height="520" fill="#22242e"/><rect x="100" y="140" width="90" height="460" fill="#1e2028"/><rect x="180" y="60" width="140" height="540" fill="#24262e"/><rect x="310" y="120" width="80" height="480" fill="#1c1e28"/><rect x="480" y="40" width="160" height="560" fill="#222430"/><rect x="630" y="100" width="110" height="500" fill="#1e2028"/><rect x="730" y="150" width="170" height="450" fill="#20222c"/><rect x="20" y="100" width="8" height="5" fill="#d4a840" opacity="0.7"/><rect x="36" y="100" width="8" height="5" fill="#c89030" opacity="0.5"/><rect x="200" y="80" width="10" height="6" fill="#d4a840" opacity="0.7"/><rect x="500" y="60" width="12" height="7" fill="#d4a840" opacity="0.7"/><rect x="520" y="60" width="12" height="7" fill="#c89030" opacity="0.6"/><rect x="540" y="75" width="12" height="7" fill="#d4a840" opacity="0.5"/><rect y="440" width="900" height="160" fill="#16181e"/><rect y="440" width="900" height="160" fill="url(#gl)"/><line x1="0" y1="500" x2="350" y2="470" stroke="#e0c070" stroke-width="2" opacity="0.3"/><line x1="200" y1="0" x2="190" y2="440" stroke="#8090a0" stroke-width="0.5" opacity="0.15"/><line x1="400" y1="0" x2="390" y2="440" stroke="#8090a0" stroke-width="0.5" opacity="0.1"/><rect x="60" y="455" width="90" height="40" rx="3" fill="#c8a020"/><rect x="75" y="445" width="60" height="15" rx="2" fill="#b09018"/></svg>`,
+    paris:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600"><defs><linearGradient id="sk" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#c8c4d0"/><stop offset="100%" stop-color="#d8d4dc"/></linearGradient></defs><rect width="900" height="600" fill="url(#sk)"/><rect x="0" y="300" width="200" height="300" fill="#6a6870"/><polygon points="0,300 200,300 100,200" fill="#5a5860"/><rect x="180" y="320" width="180" height="280" fill="#727080"/><polygon points="180,320 360,320 270,210" fill="#626070"/><rect x="340" y="280" width="220" height="320" fill="#6a6870"/><polygon points="340,280 560,280 450,170" fill="#5a5860"/><rect x="540" y="310" width="160" height="290" fill="#727080"/><polygon points="540,310 700,310 620,200" fill="#626070"/><rect x="680" y="290" width="220" height="310" fill="#6a6870"/><polygon points="680,290 900,290 790,180" fill="#5a5860"/><rect x="360" y="310" width="40" height="55" rx="2" fill="#e8c870" opacity="0.7"/><rect x="365" y="315" width="14" height="45" fill="#e0b840" opacity="0.6"/><line x1="0" y1="0" x2="-20" y2="600" stroke="#a0a8b4" stroke-width="0.8" opacity="0.15"/><line x1="200" y1="0" x2="180" y2="600" stroke="#a0a8b4" stroke-width="0.8" opacity="0.12"/><line x1="400" y1="0" x2="380" y2="600" stroke="#a0a8b4" stroke-width="0.8" opacity="0.14"/><line x1="600" y1="0" x2="580" y2="600" stroke="#a0a8b4" stroke-width="0.8" opacity="0.11"/><polygon points="450,60 456,200 444,200" fill="#5a5868" opacity="0.4"/><rect x="449" y="200" width="2" height="80" fill="#5a5868" opacity="0.4"/></svg>`,
+    tokyo:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600"><rect width="900" height="600" fill="#0e1018"/><rect x="200" y="200" width="500" height="320" fill="#e8e4d8"/><rect x="200" y="200" width="500" height="40" fill="#d03030"/><rect x="240" y="210" width="80" height="20" fill="#ffffff" opacity="0.9" rx="2"/><rect x="340" y="210" width="60" height="20" fill="#ffffff" opacity="0.7" rx="2"/><rect x="220" y="260" width="460" height="8" fill="#c8c4b8" opacity="0.6"/><rect x="220" y="300" width="460" height="8" fill="#c8c4b8" opacity="0.6"/><rect x="220" y="340" width="460" height="8" fill="#c8c4b8" opacity="0.6"/><rect x="220" y="380" width="460" height="8" fill="#c8c4b8" opacity="0.6"/><rect x="240" y="248" width="20" height="12" fill="#e04040" opacity="0.8"/><rect x="265" y="248" width="20" height="12" fill="#4080d0" opacity="0.8"/><rect x="290" y="248" width="20" height="12" fill="#40a040" opacity="0.8"/><rect x="315" y="248" width="20" height="12" fill="#e08020" opacity="0.8"/><rect x="560" y="310" width="30" height="100" fill="#2a2830" opacity="0.9"/><ellipse cx="575" cy="305" rx="16" ry="18" fill="#3a3830" opacity="0.9"/><rect x="60" y="180" width="100" height="30" fill="#e04040" opacity="0.8" rx="2"/><rect x="60" y="220" width="80" height="25" fill="#4060d0" opacity="0.7" rx="2"/><rect x="760" y="190" width="90" height="28" fill="#d04080" opacity="0.8" rx="2"/><rect y="520" width="900" height="80" fill="#12141c"/></svg>`,
+    quiet:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600"><defs><radialGradient id="lt" cx="55%" cy="40%" r="55%"><stop offset="0%" stop-color="#f0e8d0"/><stop offset="100%" stop-color="#c8bca0"/></radialGradient></defs><rect width="900" height="600" fill="url(#lt)"/><rect x="0" y="300" width="900" height="300" fill="#d8cdb8" opacity="0.5"/><rect x="0" y="350" width="900" height="250" fill="#ccc0a8" opacity="0.4"/><line x1="0" y1="380" x2="900" y2="395" stroke="#b8ac96" stroke-width="1.5" opacity="0.4"/><line x1="0" y1="430" x2="900" y2="418" stroke="#b8ac96" stroke-width="1" opacity="0.3"/><ellipse cx="340" cy="340" rx="90" ry="30" fill="#c8a880" opacity="0.85" transform="rotate(-10,340,340)"/><ellipse cx="560" cy="350" rx="85" ry="28" fill="#c0a078" opacity="0.85" transform="rotate(8,560,350)"/><ellipse cx="270" cy="318" rx="18" ry="10" fill="#c8a880" opacity="0.8" transform="rotate(-15,270,318)"/><ellipse cx="290" cy="310" rx="18" ry="9" fill="#c8a880" opacity="0.8" transform="rotate(-8,290,310)"/><ellipse cx="313" cy="308" rx="18" ry="9" fill="#c8a880" opacity="0.8"/><ellipse cx="336" cy="310" rx="16" ry="9" fill="#c8a880" opacity="0.8" transform="rotate(5,336,310)"/><ellipse cx="490" cy="328" rx="16" ry="9" fill="#c0a078" opacity="0.8" transform="rotate(-5,490,328)"/><ellipse cx="515" cy="322" rx="18" ry="9" fill="#c0a078" opacity="0.8" transform="rotate(3,515,322)"/><ellipse cx="538" cy="322" rx="18" ry="9" fill="#c0a078" opacity="0.8" transform="rotate(8,538,322)"/><ellipse cx="450" cy="320" rx="200" ry="80" fill="#f0e8d0" opacity="0.25"/></svg>`,
+    london:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600"><defs><linearGradient id="sk" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#9098a8"/><stop offset="100%" stop-color="#b0b8c4"/></linearGradient></defs><rect width="900" height="600" fill="url(#sk)"/><rect x="0" y="0" width="900" height="600" fill="none" stroke="#8a8070" stroke-width="20" opacity="0.5"/><line x1="80" y1="0" x2="60" y2="600" stroke="#9aa8b8" stroke-width="1.2" opacity="0.4"/><line x1="180" y1="0" x2="160" y2="600" stroke="#9aa8b8" stroke-width="0.8" opacity="0.3"/><line x1="280" y1="0" x2="260" y2="600" stroke="#9aa8b8" stroke-width="1" opacity="0.35"/><line x1="480" y1="0" x2="462" y2="600" stroke="#9aa8b8" stroke-width="1.2" opacity="0.38"/><line x1="680" y1="0" x2="662" y2="600" stroke="#9aa8b8" stroke-width="1" opacity="0.34"/><path d="M130,0 Q132,80 128,160 Q130,240 126,320" stroke="#8090a4" stroke-width="1.5" fill="none" opacity="0.35"/><path d="M560,0 Q562,90 558,170 Q560,250 556,350" stroke="#8090a4" stroke-width="1.2" fill="none" opacity="0.32"/><rect y="340" width="900" height="260" fill="#e0d8cc"/><rect x="0" y="390" width="160" height="80" rx="4" fill="#8a6060" opacity="0.8"/><rect x="180" y="390" width="160" height="80" rx="4" fill="#6a6090" opacity="0.8"/><rect x="360" y="390" width="160" height="80" rx="4" fill="#8a6060" opacity="0.8"/><rect x="540" y="390" width="160" height="80" rx="4" fill="#6a6090" opacity="0.8"/><rect x="720" y="390" width="180" height="80" rx="4" fill="#8a6060" opacity="0.8"/><ellipse cx="80" cy="388" rx="22" ry="26" fill="#2a2826" opacity="0.8"/><rect x="58" y="388" width="44" height="82" fill="#2a2826" opacity="0.8" rx="3"/><ellipse cx="260" cy="385" rx="20" ry="24" fill="#2a2826" opacity="0.8"/><rect x="240" y="385" width="40" height="85" fill="#2a2826" opacity="0.8" rx="3"/><ellipse cx="440" cy="382" rx="22" ry="26" fill="#2a2826" opacity="0.8"/><rect x="418" y="382" width="44" height="88" fill="#2a2826" opacity="0.8" rx="3"/></svg>`
+  };
+  const sv=S[k]||S.kyoto;
+  return 'data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(sv)));
+}
+
+// ── DATA ──
+const POSTS=[
+  {id:1,author:'natsume_k',place:'Fushimi Inari Shrine',city:'Kyoto, Japan',lines:['first gate, still shut','a child counts the stone lanterns','the moss does not wait'],held:12,scene:'kyoto',themes:['nature','silence','ancient','shrine','Japan','morning']},
+  {id:2,author:'marlowe_t',place:'Odessa',city:'East Village, New York',lines:['late cab runs a red','fifth avenue at three a.m.','no witness but me'],held:8,scene:'nyc',themes:['night','city','solitude','rain','bar']},
+  {id:3,author:'solène',place:'Café de Flore',city:'Saint-Germain, Paris',lines:['your coat on my chair','still smells like sunday morning','I haven\'t moved it'],held:34,scene:'paris',themes:['memory','absence','love','morning','café','longing']},
+  {id:4,author:'ryo_h',place:'7-Eleven Shinjuku',city:'Tokyo, Japan',lines:['midnight store chime rings','a man buys rice balls and leaves','silence again falls'],held:19,scene:'tokyo',themes:['night','city','solitude','Japan','silence','ritual']},
+  {id:5,author:'priya_m',place:'Powell\'s City of Books',city:'Portland, OR',lines:['grandmother\'s worn hands','folding sheets, not looking up','she hums something old'],held:51,scene:'quiet',themes:['memory','family','age','quiet','love','books']},
+  {id:6,author:'otso_v',place:'Paddington Station',city:'London, UK',lines:['rain streaks the window','everyone on this packed train','pretends to be fine'],held:22,scene:'london',themes:['rain','city','solitude','commute','loneliness','station']},
+];
+
+const PLACES=[
+  {id:'p1',name:'Fushimi Inari Shrine',city:'Kyoto, Japan',lng:135.77,lat:34.97,pids:[1]},
+  {id:'p2',name:'Odessa',city:'East Village, New York',lng:-73.99,lat:40.73,pids:[2]},
+  {id:'p3',name:'Café de Flore',city:'Saint-Germain, Paris',lng:2.33,lat:48.85,pids:[3]},
+  {id:'p4',name:'7-Eleven Shinjuku',city:'Tokyo, Japan',lng:139.70,lat:35.69,pids:[4]},
+  {id:'p5',name:'Powell\'s City of Books',city:'Portland, OR',lng:-122.68,lat:45.52,pids:[5]},
+  {id:'p6',name:'Paddington Station',city:'London, UK',lng:-0.18,lat:51.52,pids:[6]},
+];
+
+const PLACE_SUGGEST=[
+  {n:'Fushimi Inari Shrine',c:'Kyoto, Japan'},{n:'Kinkaku-ji',c:'Kyoto, Japan'},
+  {n:'Senso-ji Temple',c:'Tokyo, Japan'},{n:'Shinjuku Gyoen',c:'Tokyo, Japan'},
+  {n:'Odessa',c:'East Village, New York'},{n:'Joe\'s Coffee',c:'West Village, New York'},
+  {n:'Café de Flore',c:'Saint-Germain, Paris'},{n:'Shakespeare and Company',c:'Paris, France'},
+  {n:'Paddington Station',c:'London, UK'},{n:'Tate Modern',c:'London, UK'},
+  {n:'Powell\'s City of Books',c:'Portland, OR'},{n:'Lan Su Chinese Garden',c:'Portland, OR'},
+  {n:'Bondi Beach',c:'Sydney, Australia'},{n:'Grounds of Alexandria',c:'Sydney, Australia'},
+  {n:'Nishiki Market',c:'Kyoto, Japan'},{n:'Tsukiji Outer Market',c:'Tokyo, Japan'},
+  {n:'The High Line',c:'New York, USA'},{n:'Russ & Daughters',c:'Lower East Side, New York'},
+];
+
+const THREAD_TYPES=['emotional resonance','time of day','the texture of silence','figures seen from a distance','the weight of memory','threshold moments','what is left unsaid','light and its quality','solitude in crowds','the presence of absence'];
+
+const SVGS={};
+['kyoto','nyc','paris','tokyo','quiet','london'].forEach(k=>{SVGS[k]=svg(k);});
+
+// ── STATE ──
+let posts=[...POSTS],ci=0,journey=null,isT=false,timers=[],pendImg=null;
+const sesId='hr_'+Math.random().toString(36).slice(2);
+let held=new Set(JSON.parse(localStorage.getItem('hr_held')||'[]'));
+
+// ── SYLLABLES ──
+function sy(w){w=w.toLowerCase().replace(/[^a-z]/g,'');if(!w)return 0;if(w.length<=3)return 1;w=w.replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/,'');w=w.replace(/^y/,'');const m=w.match(/[aeiouy]{1,2}/g);return m?m.length:1;}
+function lsy(l){return l.trim().split(/\s+/).filter(Boolean).reduce((s,w)=>s+sy(w),0);}
+function chkSyl(){const ls=document.getElementById('fh').value.split('\n');['sy0','sy1','sy2'].forEach((id,i)=>{const el=document.getElementById(id);el.className='syp';const l=ls[i]||'';if(!l.trim())return;el.classList.add(lsy(l)===[5,7,5][i]?'ok':'bad');});}
+
+// ── RENDER ──
+function getList(){return journey?journey.seq:posts;}
+
+function showPost(idx){
+  if(isT)return;
+  const list=getList();
+  ci=((idx%list.length)+list.length)%list.length;
+  isT=true;
+  const w=document.getElementById('wipe');
+  w.classList.add('on');
+  setTimeout(()=>{
+    if(journey)renderJP(ci);else renderP(posts[ci]);
+    w.classList.remove('on');
+    setTimeout(()=>{isT=false;},420);
+  },340);
+}
+
+function renderP(p){
+  timers.forEach(clearTimeout);timers=[];
+
+  // bg
+  const img=document.getElementById('bg');
+  img.classList.remove('vis');
+  const uri=p.imgData||(p.scene&&SVGS[p.scene]);
+  if(uri){img.onload=()=>img.classList.add('vis');img.onerror=()=>{};img.src=uri;}
+  else img.src='';
+
+  // location
+  const lt=document.getElementById('ltag');
+  lt.classList.remove('vis');
+  document.getElementById('ltxt').textContent=p.city||p.place||'';
+
+  // author
+  const at=document.getElementById('atag');
+  at.classList.remove('vis');
+  at.textContent='— '+(p.author||'anonymous');
+
+  // lines
+  ['l0','l1','l2'].forEach((id,i)=>{const el=document.getElementById(id);el.classList.remove('rev');el.textContent=p.lines[i]||'';});
+
+  // hold hint
+  const hh=document.getElementById('hholdhint');
+  hh.classList.remove('vis');
+
+  // counter
+  const list=getList();
+  if(journey){
+    const pos=journey.seq.findIndex(x=>x.id===p.id)+1;
+    document.getElementById('pc').textContent=pos+' of '+journey.seq.length+' · '+journey.type;
+  } else {
+    document.getElementById('pc').textContent=(ci+1)+' — '+posts.length;
+  }
+  const places=new Set(posts.map(x=>x.place).filter(Boolean)).size;
+  document.getElementById('ci').textContent=posts.length+' haikus · '+places+' places';
+
+  // stagger reveal
+  timers.push(setTimeout(()=>lt.classList.add('vis'),180));
+  timers.push(setTimeout(()=>document.getElementById('l0').classList.add('rev'),400));
+  timers.push(setTimeout(()=>document.getElementById('l1').classList.add('rev'),760));
+  timers.push(setTimeout(()=>document.getElementById('l2').classList.add('rev'),1100));
+  timers.push(setTimeout(()=>at.classList.add('vis'),1540));
+  timers.push(setTimeout(()=>hh.classList.add('vis'),2400));
+}
+
+// ── HOLD ──
+let hTimer=null,hStarted=false;
+
+document.getElementById('hs').addEventListener('mousedown',startHold);
+document.getElementById('hs').addEventListener('touchstart',startHold,{passive:true});
+document.getElementById('hs').addEventListener('mouseup',endHold);
+document.getElementById('hs').addEventListener('mouseleave',endHold);
+document.getElementById('hs').addEventListener('touchend',endHold);
+
+function startHold(){
+  hStarted=false;
+  document.getElementById('hhint').classList.add('vis');
+  hTimer=setTimeout(()=>{
+    hStarted=true;
+    const p=journey?journey.seq[ci]:posts[ci];
+    if(p){
+      if(!held.has(p.id)){p.held=(p.held||0)+1;held.add(p.id);localStorage.setItem('hr_held',JSON.stringify([...held]));}
+      fireRipple();
+      document.getElementById('hhint').classList.remove('vis');
+      toast('remembered');
+    }
+  },800);
+}
+function endHold(){
+  clearTimeout(hTimer);hTimer=null;
+  if(!hStarted)document.getElementById('hhint').classList.remove('vis');
+}
+function fireRipple(){
+  const r=document.getElementById('rip');
+  r.classList.remove('go');void r.offsetWidth;r.classList.add('go');
+  setTimeout(()=>r.classList.remove('go'),800);
+}
+
+// ── NAVIGATE ──
+function nav(dir){
+  if(isT)return;
+  if(journey){
+    const ni=ci+dir;
+    if(ni<0||ni>=journey.seq.length){if(ni>=journey.seq.length)toast('end of journey');return;}
+    isT=true;
+    const w=document.getElementById('wipe');w.classList.add('on');
+    setTimeout(()=>{renderJP(ni);w.classList.remove('on');setTimeout(()=>{isT=false;},420);},340);
+  } else {
+    showPost(ci+dir);
+  }
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key==='ArrowDown')nav(1);
+  if(e.key==='ArrowLeft'||e.key==='ArrowUp')nav(-1);
+  if(e.key==='Escape'){closeMap();closeSub();}
+});
+let tx=null;
+document.addEventListener('touchstart',e=>{if(document.getElementById('map').classList.contains('open'))return;tx=e.touches[0].clientX;},{passive:true});
+document.addEventListener('touchend',e=>{if(tx===null)return;const dx=e.changedTouches[0].clientX-tx;if(Math.abs(dx)>50)nav(dx<0?1:-1);tx=null;},{passive:true});
+
+// ── JOURNEY ──
+async function buildJourney(placeName){
+  document.getElementById('jload').classList.add('vis');
+  const type=THREAD_TYPES[Math.floor(Math.random()*THREAD_TYPES.length)];
+  const data=posts.map(p=>({id:p.id,place:p.place,city:p.city,haiku:p.lines.join(' / '),themes:p.themes||[]}));
+  const n=Math.min(posts.length,6);
+  const prompt=`Curate a poetic journey through these haikus connected by "${type}". Start near "${placeName||'any'}". Data: ${JSON.stringify(data)}. Return ${n} IDs ordered by this theme. For each after the first, write a 5-8 word poetic bridge. JSON only: {"type":"${type}","seq":[ids...],"conn":["","bridge",...]} IDs: [${data.map(x=>x.id).join(',')}]. Exactly ${n} IDs, exactly ${n} conn strings, first always "".`;
+
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:800,system:'You are a JSON API. Respond with ONLY valid JSON. No markdown, no explanation, no backticks.',messages:[{role:'user',content:prompt}]})});
+    if(!res.ok)throw new Error('api'+res.status);
+    const d=await res.json();
+    const txt=(d.content?.[0]?.text||'').replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,'').trim();
+    const parsed=JSON.parse(txt);
+    if(!parsed.seq||!Array.isArray(parsed.seq))throw new Error('bad');
+    const seq=parsed.seq.map(id=>posts.find(p=>p.id===id)).filter(Boolean);
+    if(!seq.length)throw new Error('empty');
+    document.getElementById('jload').classList.remove('vis');
+    return{seq,conn:parsed.conn||[],type:parsed.type||type};
+  }catch(e){
+    console.warn('Journey fallback:',e.message);
+    document.getElementById('jload').classList.remove('vis');
+    const sh=[...posts].sort(()=>Math.random()-0.5).slice(0,n);
+    return{seq:sh,conn:sh.map((_,i)=>i?['the thread continues','another voice, same sky','silence answered','the mood deepens','worlds apart, same ache'][i-1]||'':''),type};
+  }
+}
+
+function renderJP(idx){
+  if(!journey)return;
+  ci=idx;
+  const p=journey.seq[idx];
+  const conn=journey.conn[idx]||'';
+  updateJBar();
+  if(conn&&idx>0){
+    showThread(journey.type,conn);
+    setTimeout(()=>{hideThread();renderP(p);},2000);
+  }else{hideThread();renderP(p);}
+}
+
+function updateJBar(){
+  if(!journey)return;
+  const b=document.getElementById('jbar');
+  b.style.width=((ci+1)/journey.seq.length*100)+'%';
+  b.classList.add('on');
+}
+function showThread(type,text){
+  document.getElementById('tlab-type').textContent=type;
+  document.getElementById('tlab-text').textContent=text;
+  document.getElementById('tlab').classList.add('vis');
+}
+function hideThread(){document.getElementById('tlab').classList.remove('vis');}
+
+function exitJourney(){
+  journey=null;ci=0;
+  document.getElementById('jexit').classList.remove('on');
+  document.getElementById('jbar').classList.remove('on');
+  document.getElementById('jbar').style.width='0';
+  hideThread();
+  showPost(0);
+}
+
+// ── MAP ──
+const MW=3200,MH=1800;
+let mst={px:0,py:0,z:1,hovP:null};
+
+function ll2xy(lng,lat){
+  const x=(lng+180)/360*MW;
+  const lr=lat*Math.PI/180;
+  const mn=Math.log(Math.tan(Math.PI/4+lr/2));
+  return{x,y:MH/2-MH*mn/(2*Math.PI)};
+}
+
+function drawMap(){
+  const wrap=document.getElementById('mwrap');
+  const canvas=document.getElementById('mcanvas');
+  const cw=wrap.clientWidth,ch=wrap.clientHeight;
+  canvas.width=cw;canvas.height=ch;
+  const ctx=canvas.getContext('2d');
+  const{px,py,z}=mst;
+  const ox=cw/2-MW*z/2+px,oy=ch/2-MH*z/2+py;
+
+  ctx.save();ctx.translate(ox,oy);ctx.scale(z,z);
+
+  // ocean
+  ctx.fillStyle='#d2d6db';ctx.fillRect(0,0,MW,MH);
+
+  // continents — simplified polygons
+  const conts=[
+    [[0.08,0.18],[0.22,0.12],[0.28,0.15],[0.32,0.22],[0.28,0.35],[0.22,0.45],[0.18,0.52],[0.12,0.52],[0.06,0.42],[0.04,0.3]],
+    [[0.18,0.52],[0.24,0.5],[0.28,0.55],[0.26,0.7],[0.22,0.78],[0.18,0.8],[0.16,0.72],[0.15,0.6]],
+    [[0.42,0.18],[0.52,0.15],[0.56,0.2],[0.54,0.28],[0.48,0.32],[0.42,0.28],[0.4,0.22]],
+    [[0.44,0.32],[0.54,0.3],[0.58,0.38],[0.56,0.55],[0.52,0.68],[0.46,0.7],[0.42,0.58],[0.4,0.42]],
+    [[0.52,0.15],[0.72,0.12],[0.82,0.18],[0.88,0.28],[0.85,0.38],[0.78,0.42],[0.68,0.4],[0.58,0.35],[0.54,0.28]],
+    [[0.72,0.55],[0.82,0.52],[0.88,0.58],[0.86,0.68],[0.78,0.7],[0.7,0.65],[0.68,0.58]],
+  ];
+  conts.forEach(pts=>{
+    ctx.beginPath();
+    pts.forEach(([px,py],i)=>{const x=px*MW,y=py*MH;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);});
+    ctx.closePath();
+    ctx.fillStyle='#f0ebe0';ctx.fill();
+    ctx.strokeStyle='rgba(30,26,20,0.16)';ctx.lineWidth=0.8/z;ctx.stroke();
+  });
+
+  // grid lines
+  ctx.strokeStyle='rgba(30,26,20,0.055)';ctx.lineWidth=0.5/z;
+  ctx.setLineDash([4/z,8/z]);
+  [0.2,0.35,0.5,0.65,0.8].forEach(py=>{ctx.beginPath();ctx.moveTo(0,py*MH);ctx.lineTo(MW,py*MH);ctx.stroke();});
+  [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9].forEach(px=>{ctx.beginPath();ctx.moveTo(px*MW,0);ctx.lineTo(px*MW,MH);ctx.stroke();});
+  ctx.setLineDash([]);
+
+  // place dots
+  PLACES.forEach(place=>{
+    const{x:mx,y:my}=ll2xy(place.lng,place.lat);
+    const cnt=place.pids.length;
+    const r=Math.max(6,3+cnt*2)/z;
+    const hov=mst.hovP===place.id;
+    ctx.beginPath();ctx.arc(mx,my,r,0,Math.PI*2);
+    ctx.shadowColor=hov?'rgba(139,42,26,0.3)':'transparent';
+    ctx.shadowBlur=hov?8/z:0;
+    ctx.fillStyle=hov?'#8b2a1a':'rgba(30,26,20,0.6)';
+    ctx.fill();ctx.shadowBlur=0;
+
+    ctx.font=`${11/z}px 'Shippori Mincho',serif`;
+    ctx.fillStyle=hov?'#8b2a1a':'rgba(30,26,20,0.5)';
+    ctx.fillText(place.name,mx+r+2/z,my+3.5/z);
+  });
+
+  ctx.restore();
+}
+
+function scrToMap(sx,sy){
+  const wrap=document.getElementById('mwrap');
+  const cw=wrap.clientWidth,ch=wrap.clientHeight;
+  const ox=cw/2-MW*mst.z/2+mst.px,oy=ch/2-MH*mst.z/2+mst.py;
+  return{mx:(sx-ox)/mst.z,my:(sy-oy)/mst.z};
+}
+
+function placeAt(sx,sy){
+  const{mx,my}=scrToMap(sx,sy);
+  let best=null,bd=Infinity;
+  PLACES.forEach(pl=>{
+    const{x:px,y:py}=ll2xy(pl.lng,pl.lat);
+    const d=Math.hypot(mx-px,my-py);
+    const hit=Math.max(14,6+pl.pids.length*2)/mst.z;
+    if(d<hit&&d<bd){bd=d;best=pl;}
+  });
+  return best;
+}
+
+let mPan=false,mMoved=false,mSX=0,mSY=0,mSPX=0,mSPY=0,mLTD=null;
+
+function initMap(){
+  const wrap=document.getElementById('mwrap');
+  const cw=wrap.clientWidth,ch=wrap.clientHeight;
+  mst.z=Math.min(cw/MW,ch/MH)*1.15;
+  mst.px=0;mst.py=0;
+
+  wrap.addEventListener('mousedown',e=>{mPan=true;mMoved=false;mSX=e.clientX;mSY=e.clientY;mSPX=mst.px;mSPY=mst.py;});
+  wrap.addEventListener('mousemove',e=>{
+    const rect=wrap.getBoundingClientRect();
+    const sx=e.clientX-rect.left,sy=e.clientY-rect.top;
+    if(mPan){const dx=e.clientX-mSX,dy=e.clientY-mSY;if(Math.abs(dx)>3||Math.abs(dy)>3)mMoved=true;mst.px=mSPX+dx;mst.py=mSPY+dy;drawMap();}
+    else{
+      const pl=placeAt(sx,sy);
+      wrap.style.cursor=pl?'pointer':'grab';
+      if(pl){if(mst.hovP!==pl.id){mst.hovP=pl.id;drawMap();}showTT(pl,sx,sy);}
+      else{if(mst.hovP){mst.hovP=null;drawMap();}hideTT();}
+    }
+  });
+  wrap.addEventListener('mouseup',e=>{
+    if(!mMoved){const rect=wrap.getBoundingClientRect();const pl=placeAt(e.clientX-rect.left,e.clientY-rect.top);if(pl)clickPlace(pl);}
+    mPan=false;
+  });
+  wrap.addEventListener('mouseleave',()=>{mPan=false;hideTT();mst.hovP=null;drawMap();});
+  wrap.addEventListener('wheel',e=>{
+    e.preventDefault();
+    const rect=wrap.getBoundingClientRect();
+    const sx=e.clientX-rect.left,sy=e.clientY-rect.top;
+    const nz=Math.max(0.3,Math.min(4,mst.z*(1-e.deltaY*0.001)));
+    const sc=nz/mst.z;
+    const cw=wrap.clientWidth,ch=wrap.clientHeight;
+    mst.px=(mst.px-(sx-cw/2))*sc+(sx-cw/2);
+    mst.py=(mst.py-(sy-ch/2))*sc+(sy-ch/2);
+    mst.z=nz;drawMap();
+  },{passive:false});
+  wrap.addEventListener('touchstart',e=>{
+    if(e.touches.length===1){mPan=true;mMoved=false;mSX=e.touches[0].clientX;mSY=e.touches[0].clientY;mSPX=mst.px;mSPY=mst.py;}
+    if(e.touches.length===2)mLTD=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+  },{passive:true});
+  wrap.addEventListener('touchmove',e=>{
+    if(e.touches.length===1&&mPan){const dx=e.touches[0].clientX-mSX,dy=e.touches[0].clientY-mSY;if(Math.abs(dx)>4||Math.abs(dy)>4)mMoved=true;mst.px=mSPX+dx;mst.py=mSPY+dy;drawMap();}
+    if(e.touches.length===2&&mLTD){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);mst.z=Math.max(0.3,Math.min(4,mst.z*d/mLTD));mLTD=d;drawMap();}
+  },{passive:true});
+  wrap.addEventListener('touchend',e=>{
+    if(!mMoved&&e.changedTouches.length===1){const rect=wrap.getBoundingClientRect();const pl=placeAt(e.changedTouches[0].clientX-rect.left,e.changedTouches[0].clientY-rect.top);if(pl)clickPlace(pl);}
+    mPan=false;mLTD=null;
+  },{passive:true});
+  drawMap();
+}
+
+function showTT(pl,sx,sy){
+  const tt=document.getElementById('mtt');
+  document.getElementById('ttn').textContent=pl.name;
+  document.getElementById('ttc').textContent=pl.city;
+  document.getElementById('ttk').textContent=pl.pids.length+' '+(pl.pids.length===1?'haiku':'haikus')+' here';
+  const wrap=document.getElementById('mwrap');
+  let l=sx+16,t=sy-10;
+  if(l+240>wrap.clientWidth)l=sx-240;
+  if(t+80>wrap.clientHeight)t=sy-80;
+  tt.style.left=l+'px';tt.style.top=t+'px';tt.classList.add('vis');
+}
+function hideTT(){document.getElementById('mtt').classList.remove('vis');}
+
+async function clickPlace(pl){
+  closeMap();
+  const built=await buildJourney(pl.name);
+  journey=built;ci=0;
+  document.getElementById('jexit').classList.add('on');
+  updateJBar();isT=false;
+  renderJP(0);
+}
+
+function openMap(){
+  document.getElementById('map').classList.add('open');
+  setTimeout(()=>{initMap();},50);
+}
+function closeMap(){document.getElementById('map').classList.remove('open');hideTT();}
+
+// ── PLACE SEARCH ──
+function searchP(q){
+  const res=document.getElementById('psres');
+  if(!q||q.length<2){res.classList.remove('open');return;}
+  const ql=q.toLowerCase();
+  const matches=PLACE_SUGGEST.filter(p=>p.n.toLowerCase().includes(ql)||p.c.toLowerCase().includes(ql)).slice(0,6);
+  if(!matches.length){res.classList.remove('open');return;}
+  res.innerHTML=matches.map(p=>`<div class="psi" onclick="selPlace('${p.n.replace(/'/g,"\\'")}','${p.c.replace(/'/g,"\\'")}')" ><div class="psn">${p.n}</div><div class="psc">${p.c}</div></div>`).join('');
+  res.classList.add('open');
+}
+function selPlace(n,c){
+  document.getElementById('fp').value=n;
+  document.getElementById('fp').dataset.city=c;
+  document.getElementById('psres').classList.remove('open');
+}
+document.addEventListener('click',e=>{if(!e.target.closest('#psr'))document.getElementById('psres').classList.remove('open');});
+
+// ── SUBMIT ──
+function onFile(e){
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=ev=>{pendImg=ev.target.result;const z=document.getElementById('pz');z.classList.add('has');z.innerHTML=`<img src="${pendImg}" alt="preview">`;};
+  r.readAsDataURL(f);
+}
+function openSub(){document.getElementById('sub').classList.add('open');}
+function closeSub(){document.getElementById('sub').classList.remove('open');}
+
+function doSub(){
+  const haiku=document.getElementById('fh').value.trim();
+  const pname=document.getElementById('fp').value.trim();
+  const pcity=document.getElementById('fp').dataset.city||'';
+  const author=document.getElementById('fa').value.trim()||'anonymous';
+  if(!haiku){toast('write the haiku first');return;}
+  const raw=haiku.split('\n').filter(l=>l.trim());
+  if(raw.length<2){toast('needs at least two lines');return;}
+  if(!pname){toast('where was this?');return;}
+
+  const np={id:Date.now(),author,place:pname,city:pcity||pname,lines:[raw[0]||'',raw[1]||'',raw[2]||''],held:0,imgData:pendImg,themes:[]};
+  posts.unshift(np);
+  PLACES.push({id:'u'+np.id,name:pname,city:pcity||pname,lng:0,lat:0,pids:[np.id]});
+
+  // reset form
+  document.getElementById('fa').value='';
+  document.getElementById('fh').value='';
+  document.getElementById('fp').value='';
+  delete document.getElementById('fp').dataset.city;
+  pendImg=null;
+  const z=document.getElementById('pz');z.classList.remove('has');z.innerHTML='<div class="pzl">◻</div><div class="pzl">tap to upload</div>';
+  chkSyl();
+  closeSub();
+
+  // post-submit moment — show one previous haiku from same place
+  const prev=posts.slice(1).find(p=>p.place===pname);
+  if(prev){
+    const pm=document.getElementById('psm');
+    document.getElementById('psm-loc').textContent=pname;
+    document.getElementById('psm-h').textContent=prev.lines.join('\n');
+    pm.classList.add('vis');
+    setTimeout(()=>{
+      pm.classList.remove('vis');
+      journey=null;ci=0;showPost(0);
+    },3500);
+  } else {
+    journey=null;ci=0;showPost(0);
+    toast('published');
+  }
+}
+
+// ── TOAST ──
+let tTimer;
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');clearTimeout(tTimer);tTimer=setTimeout(()=>t.classList.remove('on'),2200);}
+
+// ── INIT ──
+showPost(0);
+</script>
+</body>
+</html>
