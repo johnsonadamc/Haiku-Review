@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { getSvgScene, SEED_POSTS, type SeedPost } from '@/lib/seed-data';
 import MapOverlay from '@/components/MapOverlay';
 import SubmitPanel from '@/components/SubmitPanel';
+import YourHaikus from '@/components/YourHaikus';
 
 type HaikuPost = {
   id: string | number;
@@ -62,6 +63,7 @@ export default function Home() {
   const [wipeActive, setWipeActive] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
+  const [yourHaikusOpen, setYourHaikusOpen] = useState(false);
   const [journey, setJourney] = useState<Journey | null>(null);
   const [journeyLoading, setJourneyLoading] = useState(false);
 
@@ -102,6 +104,16 @@ export default function Home() {
       .then(r => r.json())
       .then(d => { if (d.haikus?.length) setPosts(d.haikus); })
       .catch(() => setPosts(SEED_POSTS));
+
+    // Open "your haikus" automatically when returning via magic link
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('haikus') === 'mine') {
+        setYourHaikusOpen(true);
+        // Clean the URL without reloading
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    }
   }, []);
 
   const showToast = useCallback((msg: string) => {
@@ -190,7 +202,7 @@ export default function Home() {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown') navigate(1);
       if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') navigate(-1);
-      if (e.key === 'Escape') { setMapOpen(false); setSubmitOpen(false); }
+      if (e.key === 'Escape') { setMapOpen(false); setSubmitOpen(false); setYourHaikusOpen(false); }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -529,6 +541,7 @@ export default function Home() {
         open={submitOpen}
         onClose={() => setSubmitOpen(false)}
         onError={showToast}
+        onViewYourHaikus={() => { setSubmitOpen(false); setYourHaikusOpen(true); }}
         onSubmitted={(newPost, prevHaiku) => {
           setPosts(prev => [newPost, ...prev]);
           setSubmitOpen(false);
@@ -582,6 +595,9 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* Your Haikus — magic-link identity view */}
+      <YourHaikus open={yourHaikusOpen} onClose={() => setYourHaikusOpen(false)} />
     </>
   );
 }

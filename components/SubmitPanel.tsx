@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { countLineSyllables } from '@/lib/syllables';
+import { createClient } from '@/lib/supabase/client';
 
 type HaikuPost = {
   id: string | number;
@@ -21,13 +22,15 @@ type Props = {
   onClose: () => void;
   onSubmitted: (newPost: HaikuPost, previousHaiku: HaikuPost | null) => void;
   onError?: (msg: string) => void;
+  onViewYourHaikus?: () => void;
 };
 
 const EXPECTED = [5, 7, 5];
 
-export default function SubmitPanel({ open, onClose, onSubmitted, onError }: Props) {
+export default function SubmitPanel({ open, onClose, onSubmitted, onError, onViewYourHaikus }: Props) {
   const toast = (m: string) => { if (onError) onError(m); else alert(m); };
   const [author, setAuthor] = useState('');
+  const [email, setEmail] = useState('');
   const [haiku, setHaiku] = useState('');
   const [placeQuery, setPlaceQuery] = useState('');
   const [placeData, setPlaceData] = useState<PlaceResult | null>(null);
@@ -57,10 +60,20 @@ export default function SubmitPanel({ open, onClose, onSubmitted, onError }: Pro
     } catch { setPlaceResults([]); }
   };
 
-  const selectPlace = (p: PlaceResult) => {
+  const selectPlace = async (p: PlaceResult) => {
     setPlaceQuery(p.n);
-    setPlaceData(p);
     setShowResults(false);
+
+    // Fetch coordinates from Place Details if we have a place_id but no lat/lng
+    if (p.place_id && (p.lat == null || p.lng == null)) {
+      try {
+        const res = await fetch(`/api/places/details?place_id=${encodeURIComponent(p.place_id)}`);
+        const geo = await res.json();
+        setPlaceData({ ...p, lat: geo.lat ?? undefined, lng: geo.lng ?? undefined });
+        return;
+      } catch {}
+    }
+    setPlaceData(p);
   };
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -73,7 +86,7 @@ export default function SubmitPanel({ open, onClose, onSubmitted, onError }: Pro
   };
 
   const resetForm = () => {
-    setAuthor(''); setHaiku(''); setPlaceQuery(''); setPlaceData(null);
+    setAuthor(''); setEmail(''); setHaiku(''); setPlaceQuery(''); setPlaceData(null);
     setPhotoPreview(null); setPhotoFile(null);
   };
 
@@ -84,17 +97,36 @@ export default function SubmitPanel({ open, onClose, onSubmitted, onError }: Pro
     if (raw.length < 2) { toast('needs at least two lines'); return; }
     if (!placeQuery) { toast('where was this?'); return; }
     setSubmitting(true);
+
     const photoUrl: string | null = photoFile ? photoPreview : null;
     const placeName = placeData?.n || placeQuery;
     const placeCity = placeData?.c || '';
     const body = {
       line_1: raw[0] || '', line_2: raw[1] || '', line_3: raw[2] || '',
       author: author || null,
+      author_email: email.trim() || null,
       place_name: placeName,
       place_city: placeCity,
+      place_lat: placeData?.lat ?? null,
+      place_lng: placeData?.lng ?? null,
       google_place_id: placeData?.place_id || null,
       photo_url: photoUrl,
     };
+
+    // If email provided, send magic link (fire-and-forget — never blocks submission)
+    if (email.trim()) {
+      try {
+        const supabase = createClient();
+        await supabase.auth.signInWithOtp({
+          email: email.trim(),
+          options: {
+            shouldCreateUser: true,
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          },
+        });
+      } catch {}
+    }
+
     try {
       const res = await fetch('/api/haikus', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const data = await res.json();
@@ -110,6 +142,10 @@ export default function SubmitPanel({ open, onClose, onSubmitted, onError }: Pro
         id: Date.now(), author: author || null, line_1: raw[0] || '', line_2: raw[1] || '', line_3: raw[2] || '',
         place: placeName, city: placeCity, photo_url: photoUrl,
       }, data.previousHaiku || null);
+
+      if (email.trim()) {
+        toast('check your email — we sent a link to find your haikus');
+      }
     } catch {
       resetForm();
       onSubmitted({
@@ -209,6 +245,16 @@ export default function SubmitPanel({ open, onClose, onSubmitted, onError }: Pro
           </div>
         </div>
 
+        {/* Email — optional, for magic-link identity */}
+        <div style={{ marginBottom: 22 }}>
+          <label style={labelStyle}>Email (optional) — to find your haikus later</label>
+          <input
+            type="email" placeholder="you@somewhere.com" value={email}
+            onChange={e => setEmail(e.target.value)}
+            style={{ ...inputStyle, fontSize: 16 }}
+          />
+        </div>
+
         {/* Haiku textarea */}
         <div style={{ marginBottom: 22 }}>
           <label style={labelStyle}>Haiku — three lines</label>
@@ -248,6 +294,18 @@ export default function SubmitPanel({ open, onClose, onSubmitted, onError }: Pro
             opacity: submitting ? 0.6 : 1,
           }}>{submitting ? 'Publishing…' : 'Publish'}</button>
         </div>
+
+        {/* Quiet "your haikus" link */}
+        {onViewYourHaikus && (
+          <div style={{ marginTop: 20, textAlign: 'center' }}>
+            <button onClick={onViewYourHaikus} style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontFamily: "'Shippori Mincho', serif", fontSize: 9,
+              letterSpacing: '0.22em', textTransform: 'uppercase',
+              color: 'var(--ink-faint)', opacity: 0.5, transition: 'opacity 0.2s',
+            }}>your haikus →</button>
+          </div>
+        )}
       </div>
     </div>
   );
