@@ -76,15 +76,15 @@ body::after {
 .pz-zone::before, .pz-zone::after {
   content: '';
   position: absolute;
-  width: 10px;
-  height: 10px;
+  width: 18px;
+  height: 18px;
   border-color: var(--gold);
   border-style: solid;
-  opacity: 0.38;
+  opacity: 0.7;
 }
 .pz-zone::before { top: 8px; left: 8px; border-width: 1px 0 0 1px; }
 .pz-zone::after  { bottom: 8px; right: 8px; border-width: 0 1px 1px 0; }
-.pz-zone.pz-has::before, .pz-zone.pz-has::after { display: none; }
+.pz-has::before, .pz-has::after { display: none; }
 
 @media (max-width: 600px) {
   .haiku-stage { padding: 0 20px 92px 24px !important; }
