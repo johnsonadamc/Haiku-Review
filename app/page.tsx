@@ -39,6 +39,13 @@ function getCity(p: HaikuPost): string {
   return p.places?.city || p.city || getPlace(p);
 }
 
+function getLocationLabel(p: HaikuPost): string {
+  const place = getPlace(p);
+  const city = p.places?.city || p.city || '';
+  if (place && city && place !== city) return `${place} · ${city}`;
+  return place || city;
+}
+
 function getBg(p: HaikuPost): string {
   if (p.photo_url) return p.photo_url;
   if (p.scene) return getSvgScene(p.scene);
@@ -64,7 +71,6 @@ export default function Home() {
   const [showL1, setShowL1] = useState(false);
   const [showL2, setShowL2] = useState(false);
   const [showAuthor, setShowAuthor] = useState(false);
-  const [showHint, setShowHint] = useState(false);
   const [bgVisible, setBgVisible] = useState(false);
 
   // thread label
@@ -73,10 +79,9 @@ export default function Home() {
   const [threadText, setThreadText] = useState('');
 
   // hold mechanic
-  const [holdHintVisible, setHoldHintVisible] = useState(false);
-  const [rippleActive, setRippleActive] = useState(false);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const holdStartedRef = useRef(false);
+  const rippleRef = useRef<HTMLDivElement>(null);
   const [heldSet, setHeldSet] = useState<Set<string | number>>(new Set());
 
   // toast
@@ -114,7 +119,7 @@ export default function Home() {
   const triggerReveal = useCallback(() => {
     clearRevealTimers();
     setShowLtag(false); setShowL0(false); setShowL1(false); setShowL2(false);
-    setShowAuthor(false); setShowHint(false); setBgVisible(false);
+    setShowAuthor(false); setBgVisible(false);
 
     const t = (ms: number, fn: () => void) => {
       const id = setTimeout(fn, ms);
@@ -127,7 +132,6 @@ export default function Home() {
     t(760, () => setShowL1(true));
     t(1100, () => setShowL2(true));
     t(1540, () => setShowAuthor(true));
-    t(2400, () => setShowHint(true));
   }, [clearRevealTimers]);
 
   const currentList = journey ? journey.seq : posts;
@@ -211,9 +215,17 @@ export default function Home() {
   }, [navigate, mapOpen]);
 
   // hold mechanic
+  const fireRipple = useCallback(() => {
+    const el = rippleRef.current;
+    if (!el) return;
+    el.classList.remove('ripple-go');
+    void el.offsetWidth; // force reflow to restart animation
+    el.classList.add('ripple-go');
+  }, []);
+
   const startHold = useCallback(() => {
+    if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
     holdStartedRef.current = false;
-    setHoldHintVisible(true);
     holdTimerRef.current = setTimeout(() => {
       holdStartedRef.current = true;
       const p = currentPost;
@@ -222,18 +234,19 @@ export default function Home() {
         newSet.add(p.id);
         setHeldSet(newSet);
         localStorage.setItem('hr_held', JSON.stringify([...newSet]));
-        fetch('/api/holds', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ haiku_id: p.id }) }).catch(() => {});
+        fetch('/api/holds', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ haiku_id: p.id }),
+        }).catch(() => {});
       }
-      setRippleActive(true);
-      setTimeout(() => setRippleActive(false), 800);
-      setHoldHintVisible(false);
+      fireRipple();
       showToast('remembered');
     }, 800);
-  }, [currentPost, heldSet, showToast]);
+  }, [currentPost, heldSet, showToast, fireRipple]);
 
   const endHold = useCallback(() => {
     if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
-    if (!holdStartedRef.current) setHoldHintVisible(false);
   }, []);
 
   const handlePlaceClick = useCallback(async (placeName: string) => {
@@ -276,7 +289,7 @@ export default function Home() {
 
   const bgSrc = currentPost ? getBg(currentPost) : '';
   const lines = currentPost ? getLines(currentPost) : ['', '', ''];
-  const locationText = currentPost ? getCity(currentPost) : '';
+  const locationText = currentPost ? getLocationLabel(currentPost) : '';
   const authorText = currentPost ? `— ${currentPost.author || 'anonymous'}` : '';
 
   const journeyProgress = journey ? ((ci + 1) / journey.seq.length * 100) : 0;
@@ -309,7 +322,7 @@ export default function Home() {
       </div>
 
       {/* Wordmark */}
-      <div style={{ position: 'fixed', top: 30, left: 36, zIndex: 100, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 5 }}>
+      <div className="wordmark" style={{ position: 'fixed', top: 30, left: 36, zIndex: 100, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 5 }}>
         <span style={{ fontFamily: "'Zen Old Mincho', serif", fontSize: 13, color: 'var(--ink)', opacity: 0.5, letterSpacing: '0.38em', textTransform: 'uppercase' }}>Haiku</span>
         <div style={{ width: 24, height: 1, background: 'var(--gold)', opacity: 0.6 }} />
         <span style={{ fontFamily: "'Shippori Mincho', serif", fontSize: 10, color: 'var(--ink-soft)', letterSpacing: '0.3em', textTransform: 'uppercase' }}>Review</span>
@@ -321,6 +334,7 @@ export default function Home() {
           background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'Shippori Mincho', serif",
           fontSize: 11, color: 'var(--ink-soft)', opacity: 0.65, transition: 'opacity 0.2s',
           letterSpacing: '0.18em', textTransform: 'uppercase',
+          minHeight: 44, minWidth: 44, display: 'flex', alignItems: 'center',
         }}>+ Submit</button>
       </div>
 
@@ -353,15 +367,10 @@ export default function Home() {
         <span style={{ display: 'block', fontFamily: "'Shippori Mincho', serif", fontSize: 12, letterSpacing: '0.18em', color: 'var(--ink-soft)', textTransform: 'uppercase' }}>{threadText}</span>
       </div>
 
-      {/* Hold ring */}
+      {/* Hold ring — ref-based animation for reliable restart */}
       <div style={{ position: 'fixed', inset: 0, zIndex: 12, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{
-          width: 64, height: 64, borderRadius: '50%', border: '1px solid var(--gold)',
-          position: 'absolute', opacity: 0, transform: 'scale(0.5)',
-          animation: rippleActive ? 'ripout 0.7s ease-out forwards' : 'none',
-        }} />
+        <div ref={rippleRef} className="hold-ripple" />
       </div>
-      <style>{`@keyframes ripout{0%{opacity:0.5;transform:scale(0.5);}100%{opacity:0;transform:scale(2.8);}}`}</style>
 
       {/* Journey loading */}
       {journeyLoading && (
@@ -371,18 +380,19 @@ export default function Home() {
           flexDirection: 'column', gap: 16,
         }}>
           <span style={{ fontFamily: "'Shippori Mincho', serif", fontSize: 11, letterSpacing: '0.28em', textTransform: 'uppercase', color: 'var(--ink-soft)', opacity: 0.7 }}>Finding connections</span>
-          <div style={{ width: 48, height: 1, background: 'var(--gold)', animation: 'jlp 1.5s ease-in-out infinite' }} />
-          <style>{`@keyframes jlp{0%,100%{opacity:0.2;width:20px;}50%{opacity:1;width:56px;}}`}</style>
+          <div className="jlp-bar" />
         </div>
       )}
 
       {/* Haiku stage — hold mechanic targets this whole div */}
       <div
+        className="haiku-stage"
         onMouseDown={startHold}
         onMouseUp={endHold}
         onMouseLeave={endHold}
         onTouchStart={startHold}
         onTouchEnd={endHold}
+        onTouchCancel={endHold}
         style={{
           position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 10,
           padding: '0 60px 58px 52px', pointerEvents: 'auto',
@@ -398,7 +408,7 @@ export default function Home() {
             opacity: showLtag ? 0.68 : 0, marginBottom: 16,
             display: 'inline-flex', alignItems: 'center', gap: 10,
             transition: 'opacity 0.9s', letterSpacing: '0.28em', textTransform: 'uppercase',
-            cursor: 'pointer', pointerEvents: 'all',
+            cursor: 'pointer', pointerEvents: 'all', minHeight: 44,
           }}
         >
           <div className="ltag-rule" style={{ width: 20, height: 1, background: 'var(--gold)', flexShrink: 0, opacity: 0.9 }} />
@@ -442,22 +452,7 @@ export default function Home() {
           opacity: showAuthor ? 0.5 : 0, transition: 'opacity 0.8s',
           letterSpacing: '0.2em', whiteSpace: 'nowrap', marginBottom: 8,
         }}>{authorText}</div>
-
-        {/* Hold hint embedded in stage */}
-        <div style={{
-          fontFamily: "'Shippori Mincho', serif", fontSize: 9, color: 'var(--ink-faint)',
-          opacity: showHint ? 0.32 : 0, transition: 'opacity 1s',
-          letterSpacing: '0.18em', textTransform: 'uppercase', pointerEvents: 'none',
-        }}>hold anywhere · to remember this</div>
       </div>
-
-      {/* Hold hint overlay — appears immediately on press start */}
-      <div style={{
-        position: 'fixed', bottom: 52, left: '50%', transform: 'translateX(-50%)', zIndex: 12,
-        pointerEvents: 'none', fontFamily: "'Shippori Mincho', serif", fontSize: 9,
-        letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--gold)',
-        opacity: holdHintVisible ? 0.65 : 0, transition: 'opacity 0.3s', whiteSpace: 'nowrap',
-      }}>hold to remember</div>
 
       {/* Nav */}
       <div style={{
@@ -469,6 +464,7 @@ export default function Home() {
           color: 'var(--ink-soft)', opacity: 0.38,
           display: 'flex', alignItems: 'center', gap: 7,
           fontFamily: "'Shippori Mincho', serif", fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase',
+          minHeight: 44,
         }}>
           <svg className="nb-al" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
           prev
@@ -479,6 +475,7 @@ export default function Home() {
           color: 'var(--ink-soft)', opacity: 0.38,
           display: 'flex', alignItems: 'center', gap: 7,
           fontFamily: "'Shippori Mincho', serif", fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase',
+          minHeight: 44,
         }}>
           next
           <svg className="nb-ar" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
@@ -504,7 +501,8 @@ export default function Home() {
           background: 'none', border: 'none', padding: '8px 0', cursor: 'pointer',
           fontFamily: "'Shippori Mincho', serif", fontSize: 10, color: 'var(--ink-soft)',
           letterSpacing: '0.18em', textTransform: 'uppercase', opacity: 0.5,
-          display: 'flex', alignItems: 'center', gap: 6, transition: 'opacity 0.4s',
+          display: 'flex', alignItems: 'center', gap: 6,
+          minHeight: 44,
         }}>
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
           all haikus
@@ -540,7 +538,7 @@ export default function Home() {
           if (localPrev) {
             clearRevealTimers();
             setShowLtag(false); setShowL0(false); setShowL1(false); setShowL2(false);
-            setShowAuthor(false); setShowHint(false);
+            setShowAuthor(false);
             setPsm({ place: placeName, lines: getLines(localPrev) });
             setPsmVisible(true);
             setTimeout(() => {

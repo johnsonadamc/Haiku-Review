@@ -27,6 +27,7 @@
 
 html, body {
   height: 100%;
+  min-height: 100dvh;
   overflow: hidden;
   background: var(--parchment);
   color: var(--ink);
@@ -49,12 +50,44 @@ body::after {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(30,26,20,0.12); }
 
+/* ── HOLD RIPPLE ── */
+@keyframes ripout {
+  0%   { opacity: 0.5; transform: scale(0.5); }
+  100% { opacity: 0;   transform: scale(2.8); }
+}
+.hold-ripple {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 1px solid var(--gold);
+  position: absolute;
+  opacity: 0;
+  transform: scale(0.5);
+}
+.hold-ripple.ripple-go {
+  animation: ripout 0.7s ease-out forwards;
+}
+
+/* ── JOURNEY LOADING BAR ── */
+@keyframes jlp {
+  0%, 100% { opacity: 0.2; width: 20px; }
+  50%       { opacity: 1;   width: 56px; }
+}
+.jlp-bar {
+  width: 48px;
+  height: 1px;
+  background: var(--gold);
+  animation: jlp 1.5s ease-in-out infinite;
+}
+
+/* ── LOCATION TAG ── */
 .ltag-rule { transition: width 0.3s, opacity 0.3s; }
 .ltag-arrow { transition: opacity 0.2s, transform 0.2s; }
 .ltag:hover { opacity: 1 !important; color: var(--ink) !important; }
 .ltag:hover .ltag-rule { width: 32px !important; opacity: 1 !important; }
 .ltag:hover .ltag-arrow { opacity: 1 !important; transform: translateX(3px); }
 
+/* ── NAV BUTTONS ── */
 .nb { transition: opacity 0.2s, transform 0.15s; }
 .nb:hover { opacity: 1 !important; }
 .nb:active { transform: scale(0.96); }
@@ -62,6 +95,7 @@ body::after {
 .nb:hover .nb-ar { transform: translateX(3px); }
 .nb svg { transition: transform 0.2s; }
 
+/* ── MISC HOVER STATES ── */
 .cb-submit:hover { opacity: 1 !important; }
 .mcls:hover { opacity: 1 !important; }
 .bcnc:hover { color: var(--ink) !important; }
@@ -69,9 +103,8 @@ body::after {
 .jexit-btn { transition: opacity 0.4s; }
 .jexit-btn:hover { opacity: 1 !important; }
 .psi-item:hover { background: rgba(30,26,20,0.04) !important; }
-.pz-zone:hover { border-color: rgba(139,42,26,0.3) !important; }
 
-/* Photo zone corner marks */
+/* ── PHOTO ZONE CORNER MARKS ── */
 .pz-zone { position: relative; }
 .pz-zone::before, .pz-zone::after {
   content: '';
@@ -85,8 +118,43 @@ body::after {
 .pz-zone::before { top: 8px; left: 8px; border-width: 1px 0 0 1px; }
 .pz-zone::after  { bottom: 8px; right: 8px; border-width: 0 1px 1px 0; }
 .pz-has::before, .pz-has::after { display: none; }
+.pz-zone:hover { border-color: rgba(139,42,26,0.3) !important; }
 
+/* ── MOBILE FIRST ── */
 @media (max-width: 600px) {
-  .haiku-stage { padding: 0 20px 92px 24px !important; }
+  html, body { height: 100dvh; }
+
+  /* Stage padding — more bottom room for nav buttons */
+  .haiku-stage { padding: 0 20px 100px 24px !important; }
+
+  /* Hide vertical collection info on narrow screens */
   .collection-info { display: none !important; }
+
+  /* Wordmark — scale down */
+  .wordmark { top: 18px !important; left: 20px !important; }
+
+  /* Nav buttons — enforce 44px touch target */
+  .nb { min-height: 44px !important; }
+
+  /* Journey exit — enforce 44px touch target */
+  .jexit-btn { min-height: 44px !important; left: 20px !important; }
+}
+
+/* ── SUBMIT PANEL MOBILE ── */
+@media (max-width: 600px) {
+  .submit-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 100dvh !important;
+    padding: 32px 20px env(safe-area-inset-bottom, 24px) !important;
+    padding-bottom: max(120px, env(safe-area-inset-bottom, 24px)) !important;
+    border-radius: 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-bottom: none !important;
+  }
+  .submit-row { grid-template-columns: 1fr !important; }
+  .submit-outer {
+    align-items: flex-end !important;
+  }
 }

@@ -134,13 +134,13 @@ export default function SubmitPanel({ open, onClose, onSubmitted, onError }: Pro
   };
 
   return (
-    <div style={{
+    <div className="submit-outer" style={{
       position: 'fixed', inset: 0, zIndex: 300,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       background: 'rgba(237,230,214,0.94)', backdropFilter: 'blur(24px)',
       opacity: open ? 1 : 0, pointerEvents: open ? 'all' : 'none', transition: 'opacity 0.32s',
     }}>
-      <div style={{
+      <div className="submit-card" style={{
         background: 'var(--parchment)', border: '1px solid rgba(30,26,20,0.1)',
         width: 'min(520px, 94vw)', maxHeight: '90vh', overflowY: 'auto',
         padding: '44px 42px 36px',
@@ -176,7 +176,7 @@ export default function SubmitPanel({ open, onClose, onSubmitted, onError }: Pro
         </div>
 
         {/* Name + Place row */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 22 }}>
+        <div className="submit-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 22 }}>
           <div>
             <label style={labelStyle}>Your name</label>
             <input type="text" placeholder="anonymous" maxLength={30} value={author} onChange={e => setAuthor(e.target.value)} style={inputStyle} />
