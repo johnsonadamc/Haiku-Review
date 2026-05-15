@@ -66,9 +66,25 @@ body::after {
 .mcls:hover { opacity: 1 !important; }
 .bcnc:hover { color: var(--ink) !important; }
 .bpub:hover { background: var(--seal) !important; color: var(--parchment) !important; border-color: var(--seal) !important; }
+.jexit-btn { transition: opacity 0.4s; }
 .jexit-btn:hover { opacity: 1 !important; }
 .psi-item:hover { background: rgba(30,26,20,0.04) !important; }
 .pz-zone:hover { border-color: rgba(139,42,26,0.3) !important; }
+
+/* Photo zone corner marks */
+.pz-zone { position: relative; }
+.pz-zone::before, .pz-zone::after {
+  content: '';
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-color: var(--gold);
+  border-style: solid;
+  opacity: 0.38;
+}
+.pz-zone::before { top: 8px; left: 8px; border-width: 1px 0 0 1px; }
+.pz-zone::after  { bottom: 8px; right: 8px; border-width: 0 1px 1px 0; }
+.pz-zone.pz-has::before, .pz-zone.pz-has::after { display: none; }
 
 @media (max-width: 600px) {
   .haiku-stage { padding: 0 20px 92px 24px !important; }

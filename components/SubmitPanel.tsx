@@ -154,12 +154,12 @@ export default function SubmitPanel({ open, onClose, onSubmitted, onError }: Pro
         <div style={{ marginBottom: 22 }}>
           <label style={labelStyle}>Photo</label>
           <div
-            className="pz-zone"
+            className={`pz-zone${photoPreview ? ' pz-has' : ''}`}
             onClick={() => fileRef.current?.click()}
             style={{
               border: `1px solid ${photoPreview ? 'rgba(139,42,26,0.28)' : 'rgba(30,26,20,0.11)'}`,
               padding: photoPreview ? 0 : '26px', textAlign: 'center', cursor: 'pointer',
-              transition: 'border-color 0.25s', overflow: 'hidden', position: 'relative',
+              transition: 'border-color 0.25s', overflow: 'hidden',
               background: 'rgba(30,26,20,0.015)',
             }}
           >

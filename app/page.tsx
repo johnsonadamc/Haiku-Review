@@ -335,14 +335,13 @@ export default function Home() {
         {posts.length} haikus · {placeCount} places
       </div>
 
-      {/* Journey progress bar */}
-      {journey && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, zIndex: 200, height: 2,
-          background: 'var(--gold)', opacity: 0.45, width: `${journeyProgress}%`,
-          transition: 'width 0.6s ease', pointerEvents: 'none',
-        }} />
-      )}
+      {/* Journey progress bar — always in DOM, fades in/out */}
+      <div style={{
+        position: 'fixed', top: 0, left: 0, zIndex: 200, height: 2,
+        background: 'var(--gold)', opacity: journey ? 0.45 : 0,
+        width: journey ? `${journeyProgress}%` : '0%',
+        transition: 'width 0.6s ease, opacity 0.4s', pointerEvents: 'none',
+      }} />
 
       {/* Thread label */}
       <div style={{
@@ -452,13 +451,13 @@ export default function Home() {
         }}>hold anywhere · to remember this</div>
       </div>
 
-      {/* Hold hint overlay */}
+      {/* Hold hint overlay — appears immediately on press start */}
       <div style={{
         position: 'fixed', bottom: 52, left: '50%', transform: 'translateX(-50%)', zIndex: 12,
         pointerEvents: 'none', fontFamily: "'Shippori Mincho', serif", fontSize: 9,
         letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--gold)',
         opacity: holdHintVisible ? 0.65 : 0, transition: 'opacity 0.3s', whiteSpace: 'nowrap',
-      }}>hold anywhere · to remember this</div>
+      }}>hold to remember</div>
 
       {/* Nav */}
       <div style={{
