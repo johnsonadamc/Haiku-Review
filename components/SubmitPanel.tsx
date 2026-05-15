@@ -42,10 +42,16 @@ export default function SubmitPanel({ open, onClose, onSubmitted, onError, onVie
   const fileRef = useRef<HTMLInputElement>(null);
 
   const lines = haiku.split('\n');
-  const syllableStates = [0, 1, 2].map(i => {
+  const syllableCounts = [0, 1, 2].map(i => {
     const l = lines[i] || '';
-    if (!l.trim()) return 'empty';
-    return countLineSyllables(l) === EXPECTED[i] ? 'ok' : 'bad';
+    if (!l.trim()) return 0;
+    return countLineSyllables(l);
+  });
+  const syllableStates = [0, 1, 2].map(i => {
+    const count = syllableCounts[i];
+    if (count === 0) return 'empty';
+    if (count < 3) return 'pending';           // typing — not enough to judge
+    return count === EXPECTED[i] ? 'ok' : 'bad';
   });
 
   const searchPlace = async (q: string) => {
@@ -271,11 +277,23 @@ export default function SubmitPanel({ open, onClose, onSubmitted, onError, onVie
           />
           <div style={{ display: 'flex', gap: 6, marginTop: 9 }}>
             {syllableStates.map((state, i) => (
-              <div key={i} style={{
-                flex: 1, height: 1.5, borderRadius: 1,
-                background: state === 'ok' ? '#5a8040' : state === 'bad' ? 'var(--seal)' : 'rgba(30,26,20,0.1)',
-                transition: 'background 0.35s',
-              }} />
+              <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{
+                  height: 1.5, borderRadius: 1,
+                  background: state === 'ok' ? '#5a8040' : state === 'bad' ? 'var(--seal)' : 'rgba(30,26,20,0.1)',
+                  transition: 'background 0.35s',
+                }} />
+                {syllableCounts[i] > 0 && (
+                  <div style={{
+                    fontFamily: "'Shippori Mincho', serif",
+                    fontSize: 9, letterSpacing: '0.15em',
+                    color: 'var(--ink-faint)', opacity: 0.7,
+                    textAlign: 'center',
+                  }}>
+                    {syllableCounts[i]}/{EXPECTED[i]}
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         </div>
