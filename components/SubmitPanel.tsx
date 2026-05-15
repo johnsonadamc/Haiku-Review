@@ -20,11 +20,13 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onSubmitted: (newPost: HaikuPost, previousHaiku: HaikuPost | null) => void;
+  onError?: (msg: string) => void;
 };
 
 const EXPECTED = [5, 7, 5];
 
-export default function SubmitPanel({ open, onClose, onSubmitted }: Props) {
+export default function SubmitPanel({ open, onClose, onSubmitted, onError }: Props) {
+  const toast = (m: string) => { if (onError) onError(m); else alert(m); };
   const [author, setAuthor] = useState('');
   const [haiku, setHaiku] = useState('');
   const [placeQuery, setPlaceQuery] = useState('');
@@ -70,33 +72,50 @@ export default function SubmitPanel({ open, onClose, onSubmitted }: Props) {
     reader.readAsDataURL(f);
   };
 
+  const resetForm = () => {
+    setAuthor(''); setHaiku(''); setPlaceQuery(''); setPlaceData(null);
+    setPhotoPreview(null); setPhotoFile(null);
+  };
+
   const doSubmit = async () => {
+    const trimmed = haiku.trim();
+    if (!trimmed) { toast('write the haiku first'); return; }
     const raw = haiku.split('\n').filter(l => l.trim());
-    if (raw.length < 2) { alert('needs at least two lines'); return; }
-    if (!placeQuery) { alert('where was this?'); return; }
+    if (raw.length < 2) { toast('needs at least two lines'); return; }
+    if (!placeQuery) { toast('where was this?'); return; }
     setSubmitting(true);
+    const photoUrl: string | null = photoFile ? photoPreview : null;
+    const placeName = placeData?.n || placeQuery;
+    const placeCity = placeData?.c || '';
+    const body = {
+      line_1: raw[0] || '', line_2: raw[1] || '', line_3: raw[2] || '',
+      author: author || null,
+      place_name: placeName,
+      place_city: placeCity,
+      google_place_id: placeData?.place_id || null,
+      photo_url: photoUrl,
+    };
     try {
-      let photoUrl: string | null = null;
-      if (photoFile) {
-        // For now store as data URL — in production upload to Supabase Storage
-        photoUrl = photoPreview;
-      }
-      const body = {
-        line_1: raw[0] || '', line_2: raw[1] || '', line_3: raw[2] || '',
-        author: author || null,
-        place_name: placeData?.n || placeQuery,
-        place_city: placeData?.c || '',
-        google_place_id: placeData?.place_id || null,
-        photo_url: photoUrl,
-      };
       const res = await fetch('/api/haikus', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      // Reset form
-      setAuthor(''); setHaiku(''); setPlaceQuery(''); setPlaceData(null); setPhotoPreview(null); setPhotoFile(null);
-      onSubmitted(data.haiku || body, data.previousHaiku || null);
-    } catch (e) {
-      console.error(e);
+      resetForm();
+      const dbHaiku = data.haiku ? {
+        ...data.haiku,
+        place: data.place?.name || placeName,
+        city: data.place?.city || placeCity,
+        places: data.place ? { name: data.place.name, city: data.place.city, lat: data.place.lat, lng: data.place.lng } : undefined,
+      } : null;
+      onSubmitted(dbHaiku || {
+        id: Date.now(), author: author || null, line_1: raw[0] || '', line_2: raw[1] || '', line_3: raw[2] || '',
+        place: placeName, city: placeCity, photo_url: photoUrl,
+      }, data.previousHaiku || null);
+    } catch {
+      resetForm();
+      onSubmitted({
+        id: Date.now(), author: author || null, line_1: raw[0] || '', line_2: raw[1] || '', line_3: raw[2] || '',
+        place: placeName, city: placeCity, photo_url: photoUrl,
+      }, null);
     } finally {
       setSubmitting(false);
     }
@@ -135,6 +154,7 @@ export default function SubmitPanel({ open, onClose, onSubmitted }: Props) {
         <div style={{ marginBottom: 22 }}>
           <label style={labelStyle}>Photo</label>
           <div
+            className="pz-zone"
             onClick={() => fileRef.current?.click()}
             style={{
               border: `1px solid ${photoPreview ? 'rgba(139,42,26,0.28)' : 'rgba(30,26,20,0.11)'}`,
@@ -176,7 +196,7 @@ export default function SubmitPanel({ open, onClose, onSubmitted }: Props) {
                 borderTop: 'none', zIndex: 10, maxHeight: 200, overflowY: 'auto',
               }}>
                 {placeResults.map((p, i) => (
-                  <div key={i} onClick={() => selectPlace(p)} style={{
+                  <div key={i} className="psi-item" onMouseDown={(e) => { e.preventDefault(); selectPlace(p); }} style={{
                     padding: '10px 12px', cursor: 'pointer',
                     borderBottom: '1px solid rgba(30,26,20,0.06)', transition: 'background 0.15s',
                   }}>
@@ -216,12 +236,12 @@ export default function SubmitPanel({ open, onClose, onSubmitted }: Props) {
 
         {/* Actions */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 30, paddingTop: 22, borderTop: '1px solid rgba(30,26,20,0.07)' }}>
-          <button onClick={onClose} style={{
+          <button className="bcnc" onClick={onClose} style={{
             background: 'none', border: 'none', fontFamily: "'Shippori Mincho', serif",
             fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase',
             color: 'var(--ink-soft)', cursor: 'pointer', transition: 'color 0.2s',
           }}>never mind</button>
-          <button onClick={doSubmit} disabled={submitting} style={{
+          <button className="bpub" onClick={doSubmit} disabled={submitting} style={{
             background: 'none', border: '1px solid rgba(139,42,26,0.4)', color: 'var(--seal)',
             fontFamily: "'Shippori Mincho', serif", fontSize: 11, padding: '10px 28px',
             cursor: 'pointer', transition: 'all 0.25s', letterSpacing: '0.28em', textTransform: 'uppercase',

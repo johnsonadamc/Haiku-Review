@@ -23,7 +23,7 @@ type Props = {
   open: boolean;
   posts: HaikuPost[];
   onClose: () => void;
-  onPlaceSelect: (placeName: string, placeHaikus?: HaikuPost[]) => void;
+  onPlaceSelect: (placeName: string) => void;
 };
 
 const MW = 3200, MH = 1800;
@@ -209,8 +209,7 @@ export default function MapOverlay({ open, posts, onClose, onPlaceSelect }: Prop
         const rect = wrap.getBoundingClientRect();
         const pl = placeAt(e.clientX - rect.left, e.clientY - rect.top, places);
         if (pl) {
-          const placeHaikus = posts.filter(p => (p.places?.name || p.place) === pl.name);
-          onPlaceSelect(pl.name, placeHaikus);
+          onPlaceSelect(pl.name);
         }
       }
       panRef.current.active = false;
@@ -256,8 +255,7 @@ export default function MapOverlay({ open, posts, onClose, onPlaceSelect }: Prop
         const rect = wrap.getBoundingClientRect();
         const pl = placeAt(e.changedTouches[0].clientX - rect.left, e.changedTouches[0].clientY - rect.top, places);
         if (pl) {
-          const placeHaikus = posts.filter(p => (p.places?.name || p.place) === pl.name);
-          onPlaceSelect(pl.name, placeHaikus);
+          onPlaceSelect(pl.name);
         }
       }
       panRef.current.active = false;
@@ -302,7 +300,7 @@ export default function MapOverlay({ open, posts, onClose, onPlaceSelect }: Prop
           <div style={{ width: 20, height: 1, background: 'var(--gold)', opacity: 0.55 }} />
           <span style={{ fontFamily: "'Shippori Mincho', serif", fontSize: 9, color: 'var(--ink-soft)', letterSpacing: '0.28em', textTransform: 'uppercase', opacity: 0.65 }}>tap a place · claude charts your journey</span>
         </div>
-        <button onClick={onClose} style={{
+        <button className="mcls" onClick={onClose} style={{
           background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'Shippori Mincho', serif",
           fontSize: 11, color: 'var(--ink-soft)', opacity: 0.35, letterSpacing: '0.18em',
           textTransform: 'uppercase', transition: 'opacity 0.2s', pointerEvents: 'all',

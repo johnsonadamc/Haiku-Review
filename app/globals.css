@@ -49,6 +49,27 @@ body::after {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(30,26,20,0.12); }
 
+.ltag-rule { transition: width 0.3s, opacity 0.3s; }
+.ltag-arrow { transition: opacity 0.2s, transform 0.2s; }
+.ltag:hover { opacity: 1 !important; color: var(--ink) !important; }
+.ltag:hover .ltag-rule { width: 32px !important; opacity: 1 !important; }
+.ltag:hover .ltag-arrow { opacity: 1 !important; transform: translateX(3px); }
+
+.nb { transition: opacity 0.2s, transform 0.15s; }
+.nb:hover { opacity: 1 !important; }
+.nb:active { transform: scale(0.96); }
+.nb:hover .nb-al { transform: translateX(-3px); }
+.nb:hover .nb-ar { transform: translateX(3px); }
+.nb svg { transition: transform 0.2s; }
+
+.cb-submit:hover { opacity: 1 !important; }
+.mcls:hover { opacity: 1 !important; }
+.bcnc:hover { color: var(--ink) !important; }
+.bpub:hover { background: var(--seal) !important; color: var(--parchment) !important; border-color: var(--seal) !important; }
+.jexit-btn:hover { opacity: 1 !important; }
+.psi-item:hover { background: rgba(30,26,20,0.04) !important; }
+.pz-zone:hover { border-color: rgba(139,42,26,0.3) !important; }
+
 @media (max-width: 600px) {
   .haiku-stage { padding: 0 20px 92px 24px !important; }
   .collection-info { display: none !important; }

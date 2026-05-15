@@ -84,6 +84,10 @@ export default function Home() {
   const [toastVisible, setToastVisible] = useState(false);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // post-submit moment ("someone else was here too")
+  const [psm, setPsm] = useState<{ place: string; lines: [string, string, string] } | null>(null);
+  const [psmVisible, setPsmVisible] = useState(false);
+
   const revealTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
@@ -232,24 +236,30 @@ export default function Home() {
     if (!holdStartedRef.current) setHoldHintVisible(false);
   }, []);
 
-  const handlePlaceClick = useCallback(async (placeName: string, placeHaikus?: HaikuPost[]) => {
+  const handlePlaceClick = useCallback(async (placeName: string) => {
     setMapOpen(false);
     setJourneyLoading(true);
-    const postsToUse = placeHaikus && placeHaikus.length > 0 ? placeHaikus : posts;
     try {
       const res = await fetch('/api/journey', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ posts: postsToUse, placeName }),
+        body: JSON.stringify({ posts, placeName }),
       });
       const data = await res.json();
-      const seq = data.seq.map((id: string | number) => postsToUse.find((p: HaikuPost) => String(p.id) === String(id))).filter(Boolean) as HaikuPost[];
+      const seq = (data.seq || [])
+        .map((id: string | number) => posts.find((p: HaikuPost) => String(p.id) === String(id)))
+        .filter(Boolean) as HaikuPost[];
       if (seq.length === 0) throw new Error('empty');
       setJourney({ seq, conn: data.conn || [], type: data.type });
       setCi(0);
     } catch {
-      const shuffled = [...posts].sort(() => Math.random() - 0.5).slice(0, 6);
-      setJourney({ seq: shuffled, conn: shuffled.map((_, i) => i === 0 ? '' : 'the thread continues'), type: 'emotional resonance' });
+      const shuffled = [...posts].sort(() => Math.random() - 0.5).slice(0, Math.min(6, posts.length));
+      const bridges = ['the thread continues', 'another voice, same sky', 'silence answered', 'the mood deepens', 'worlds apart, same ache'];
+      setJourney({
+        seq: shuffled,
+        conn: shuffled.map((_, i) => i === 0 ? '' : bridges[i - 1] || 'the thread continues'),
+        type: 'emotional resonance',
+      });
       setCi(0);
     } finally {
       setJourneyLoading(false);
@@ -283,7 +293,7 @@ export default function Home() {
       {/* Stage */}
       <div style={{ position: 'fixed', inset: 0, zIndex: 0, overflow: 'hidden' }}>
         <img
-          src={bgSrc}
+          src={bgSrc || undefined}
           alt=""
           style={{
             position: 'absolute', inset: 0, width: '100%', height: '100%',
@@ -307,7 +317,7 @@ export default function Home() {
 
       {/* Submit button */}
       <div style={{ position: 'fixed', top: 28, right: 36, zIndex: 100 }}>
-        <button onClick={() => setSubmitOpen(true)} style={{
+        <button className="cb-submit" onClick={() => setSubmitOpen(true)} style={{
           background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'Shippori Mincho', serif",
           fontSize: 11, color: 'var(--ink-soft)', opacity: 0.65, transition: 'opacity 0.2s',
           letterSpacing: '0.18em', textTransform: 'uppercase',
@@ -382,6 +392,7 @@ export default function Home() {
       >
         {/* Location tag */}
         <div
+          className="ltag"
           onClick={() => setMapOpen(true)}
           style={{
             fontFamily: "'Shippori Mincho', serif", fontSize: 10, color: 'var(--ink-soft)',
@@ -391,9 +402,9 @@ export default function Home() {
             cursor: 'pointer', pointerEvents: 'all',
           }}
         >
-          <div style={{ width: 20, height: 1, background: 'var(--gold)', flexShrink: 0, opacity: 0.9 }} />
+          <div className="ltag-rule" style={{ width: 20, height: 1, background: 'var(--gold)', flexShrink: 0, opacity: 0.9 }} />
           {locationText}
-          <span style={{ opacity: 0.6, marginLeft: -4 }}>›</span>
+          <span className="ltag-arrow" style={{ opacity: 0, marginLeft: -4 }}>›</span>
         </div>
 
         {/* Haiku lines */}
@@ -454,24 +465,24 @@ export default function Home() {
         position: 'fixed', left: '50%', bottom: 30, transform: 'translateX(-50%)',
         zIndex: 20, display: 'flex', alignItems: 'center', gap: 4,
       }}>
-        <button onClick={() => navigate(-1)} style={{
+        <button className="nb" onClick={() => navigate(-1)} style={{
           background: 'none', border: 'none', cursor: 'pointer', padding: '8px 16px',
-          color: 'var(--ink-soft)', opacity: 0.38, transition: 'opacity 0.2s',
+          color: 'var(--ink-soft)', opacity: 0.38,
           display: 'flex', alignItems: 'center', gap: 7,
           fontFamily: "'Shippori Mincho', serif", fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase',
         }}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+          <svg className="nb-al" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
           prev
         </button>
         <div style={{ width: 1, height: 14, background: 'var(--gold)', opacity: 0.3 }} />
-        <button onClick={() => navigate(1)} style={{
+        <button className="nb" onClick={() => navigate(1)} style={{
           background: 'none', border: 'none', cursor: 'pointer', padding: '8px 16px',
-          color: 'var(--ink-soft)', opacity: 0.38, transition: 'opacity 0.2s',
+          color: 'var(--ink-soft)', opacity: 0.38,
           display: 'flex', alignItems: 'center', gap: 7,
           fontFamily: "'Shippori Mincho', serif", fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase',
         }}>
           next
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          <svg className="nb-ar" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </button>
       </div>
 
@@ -489,7 +500,7 @@ export default function Home() {
 
       {/* Journey exit button */}
       {journey && (
-        <button onClick={exitJourney} style={{
+        <button className="jexit-btn" onClick={exitJourney} style={{
           position: 'fixed', left: 36, bottom: 30, zIndex: 20,
           background: 'none', border: 'none', padding: '8px 0', cursor: 'pointer',
           fontFamily: "'Shippori Mincho', serif", fontSize: 10, color: 'var(--ink-soft)',
@@ -517,17 +528,63 @@ export default function Home() {
       <MapOverlay open={mapOpen} posts={posts} onClose={() => setMapOpen(false)} onPlaceSelect={handlePlaceClick} />
 
       {/* Submit panel */}
-      <SubmitPanel open={submitOpen} onClose={() => setSubmitOpen(false)} onSubmitted={(newPost, prevHaiku) => {
-        setPosts(prev => [newPost, ...prev]);
-        setSubmitOpen(false);
-        if (prevHaiku) {
-          showToast('someone else was here too');
-        } else {
-          showToast('published');
-        }
-        setCi(0);
-        triggerReveal();
-      }} />
+      <SubmitPanel
+        open={submitOpen}
+        onClose={() => setSubmitOpen(false)}
+        onError={showToast}
+        onSubmitted={(newPost, prevHaiku) => {
+          setPosts(prev => [newPost, ...prev]);
+          setSubmitOpen(false);
+          setJourney(null);
+          const placeName = getPlace(newPost);
+          const localPrev = prevHaiku || posts.find(p => getPlace(p) === placeName && p.id !== newPost.id);
+          if (localPrev) {
+            clearRevealTimers();
+            setShowLtag(false); setShowL0(false); setShowL1(false); setShowL2(false);
+            setShowAuthor(false); setShowHint(false);
+            setPsm({ place: placeName, lines: getLines(localPrev) });
+            setPsmVisible(true);
+            setTimeout(() => {
+              setPsmVisible(false);
+              setTimeout(() => {
+                setPsm(null);
+                setCi(0);
+                triggerReveal();
+              }, 500);
+            }, 3500);
+          } else {
+            showToast('published');
+            setCi(0);
+            triggerReveal();
+          }
+        }}
+      />
+
+      {/* Post-submit moment — "someone else was here too" */}
+      {psm && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 310, display: 'flex',
+          alignItems: 'flex-end', justifyContent: 'flex-start',
+          padding: '0 0 80px 52px', background: 'rgba(245,240,232,0.0)',
+          pointerEvents: 'none', opacity: psmVisible ? 1 : 0, transition: 'opacity 0.5s',
+        }}>
+          <div style={{ pointerEvents: 'none' }}>
+            <div style={{
+              fontFamily: "'Shippori Mincho', serif", fontSize: 10, letterSpacing: '0.28em',
+              textTransform: 'uppercase', color: 'var(--ink-soft)', opacity: 0.6,
+              marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10,
+            }}>
+              <span style={{ display: 'block', width: 20, height: 1, background: 'var(--gold)' }} />
+              {psm.place}
+            </div>
+            <div style={{
+              fontFamily: "'Shippori Mincho', serif", color: 'var(--ink)',
+              fontSize: 'clamp(18px, 2.5vw, 32px)', lineHeight: 1.3, fontStyle: 'italic',
+              whiteSpace: 'pre-line',
+            }}>{psm.lines.join('\n')}</div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

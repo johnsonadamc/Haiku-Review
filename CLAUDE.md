@@ -14,15 +14,40 @@ It is also, straightforwardly, an art project. Build it like one.
 
 ---
 
+## Current Build Status
+
+The Next.js app is scaffolded and running. Supabase is connected with the schema deployed. The dev server runs on port 3000 in GitHub Codespaces.
+
+**Working:**
+- Next.js 16 App Router with TypeScript
+- Supabase connected (places, haikus, holds tables live)
+- Dev server running
+- Basic haiku viewer rendering
+
+**In progress / needs fixing:**
+- Visual audit against `_design/haiku-review.html` prototype
+- Various formatting and layout issues to correct
+- AI journey feature needs Anthropic API key in .env.local
+- Photo upload to Supabase storage not yet tested
+- Google Places API not yet connected (using hardcoded suggestions)
+- Mapbox not yet connected (using canvas placeholder)
+
+**Not yet built:**
+- Vercel deployment
+- Temporal scroll (chronological haiku navigation within a place)
+- QR code generation for physical placement
+
+---
+
 ## Tech Stack
 
-- **Framework:** Next.js (App Router, TypeScript)
-- **Database + Auth + Storage:** Supabase
+- **Framework:** Next.js 16 (App Router, TypeScript)
+- **Database + Auth + Storage:** Supabase (`lopfvramjhsowjfkynrp`)
 - **Styling:** Tailwind CSS with custom CSS variables — no component libraries
-- **Map:** Mapbox GL JS (token required — placeholder canvas map until provided)
-- **AI Journeys:** Anthropic API (`claude-sonnet-4-6`) — called from the server, never the client
-- **Deployment:** Vercel
-- **Dev:** GitHub Codespaces
+- **Map:** Canvas placeholder now — Mapbox GL JS when token provided (`NEXT_PUBLIC_MAPBOX_TOKEN`)
+- **AI Journeys:** Anthropic API (`claude-sonnet-4-6`) — server-side only via `/api/journey`
+- **Deployment:** Vercel (not yet deployed)
+- **Dev:** GitHub Codespaces (`johnsonadamc/Haiku-Review`)
 
 ---
 
@@ -65,7 +90,7 @@ It is also, straightforwardly, an art project. Build it like one.
 - All caps: uppercase only for UI labels, never for haiku content
 
 ### Key Measurements
-- Haiku stage padding: `0 110px 56px 52px` (right side clear of vote area)
+- Haiku stage padding: `0 60px 58px 52px`
 - Line sizes: line-0 `clamp(22px,3.0vw,42px)`, line-1 `clamp(19px,2.6vw,37px)`, line-2 `clamp(17px,2.3vw,33px)`
 - Progressive indent: line-0 0px, line-1 ~15px, line-2 ~30px — like a hanging scroll composition
 - All haiku lines: `white-space: nowrap` — never wrap
@@ -83,113 +108,122 @@ background: linear-gradient(to top,
   rgba(245,240,232,0.04) 100%);
 ```
 
+### Stagger Timing
+- Location tag: 180ms
+- Line 0: 400ms
+- Line 1: 760ms
+- Line 2: 1100ms
+- Author: 1540ms
+- Hold hint: 2400ms
+
 ---
 
 ## Features
 
 ### 1. Haiku Viewer (Primary Surface)
-- Full-bleed photo/scene background
-- Haiku lines reveal staggered: 400ms / 760ms / 1100ms delays
-- Location tag appears at 180ms
-- Author appears at 1540ms
-- `← prev` / `next →` navigation, keyboard arrows, swipe gestures
-- **Hold mechanic:** long-press (800ms) anywhere on the haiku stage triggers a gold ripple and increments the post's `held` count silently. No count shown to the reader. Hint text "hold anywhere to remember" appears faintly after 2200ms.
+- Full-bleed photo/scene background with SVG fallback scenes per location
+- Haiku lines reveal staggered (see timings above)
+- `← prev` / `next →` navigation, keyboard arrows (←→), swipe gestures
+- **Hold mechanic:** long-press (800ms) anywhere on the haiku stage triggers a gold ripple and increments the post's `held_count` silently. No count shown to the reader. Hint text "hold anywhere · to remember this" appears faintly after 2400ms.
+- Wordmark top-left: "Haiku" (Zen Old Mincho) / gold rule / "Review" (Shippori Mincho)
+- `+ Submit` button top-right
+- Vertical collection info label right side (N haikus · N places)
 
 ### 2. Location Tag → Map Entry
-- Location tag at bottom-left is the only map entry point
+- Location tag at bottom-left is the ONLY map entry point
 - Tap opens the map overlay
-- Tag shows city/place name, has a `›` arrow that slides in on hover
-- Do NOT add a "Places" button elsewhere
+- Tag shows place name, has a `›` arrow that slides in on hover
+- Do NOT add a "Places" button anywhere else
 
 ### 3. Map
 - Full-screen overlay, parchment background
-- Sumi-ink aesthetic: parchment land, cool grey-blue water, hairline ink shorelines, faint lat/lng grid lines
-- Place dots sized proportionally to haiku count at that location
-- Hover: tooltip with place name, city, haiku count
-- Click: closes map, triggers AI journey from that place
+- Sumi-ink aesthetic: parchment land (#f0ebe0), cool grey-blue water (#d2d6db), hairline ink shorelines (rgba(30,26,20,0.16), 0.8px), faint lat/lng grid lines
+- Place dots sized proportionally to haiku_count
+- Hover: tooltip with place name, city, haiku count, gold rule
+- Click dot: closes map, triggers AI journey from that place
 - Pan (drag), zoom (wheel/pinch)
-- **Mapbox:** Use Mapbox GL JS with custom style when token provided. Until then, canvas placeholder that matches the aesthetic exactly.
-- The map is a **placeholder** architecture — isolate all rendering in `drawMap()` / `renderPlaceDots()` functions ready to swap.
+- All rendering isolated in `drawMapBase()` / `renderPlaceDots()` — ready to swap for Mapbox
+- `NEXT_PUBLIC_MAPBOX_TOKEN` blank = canvas placeholder. When provided, swap to Mapbox GL JS.
 
 ### 4. AI Journeys
-- Triggered by tapping a place dot on the map
-- Calls `claude-sonnet-4-6` via server action (never client-side)
-- Claude receives all haiku data, a randomly selected thread type, and the starting place
-- Claude returns: ordered sequence of haiku IDs + poetic bridge phrases between each
+- Triggered by clicking a place dot on the map
+- Calls `claude-sonnet-4-6` via `/api/journey` server route — NEVER from client
 - Thread types rotate randomly: 'emotional resonance' | 'time of day' | 'the texture of silence' | 'figures seen from a distance' | 'the weight of memory' | 'threshold moments' | 'what is left unsaid' | 'light and its quality' | 'solitude in crowds' | 'the presence of absence'
-- Between each haiku: thread type + bridge phrase fades in at center screen for ~2s, then fades out as new haiku reveals
+- Between each haiku: thread type label + bridge phrase fades in center screen for ~2s, fades out as new haiku reveals
 - Gold progress bar at top of screen shows journey position
 - `← all haikus` button appears bottom-left during journey
 - At journey end: "end of journey" toast, navigation stops
+- Always fallback to random shuffle with preset bridges if JSON parsing fails
 
 ### 5. Submit
 - Accessed via `+ Submit` button top-right
 - Full-screen overlay
-- Fields: photo upload, name (optional), specific place search, haiku textarea
-- **Place search:** Google Places API autocomplete — resolves to named venue with lat/lng. No city dropdowns.
-- **Syllable indicator:** three thin bars below textarea, green = correct count (5/7/5), red = off
+- Fields: photo upload (Supabase storage), name (optional), specific place search, haiku textarea
+- **Place search:** calls `/api/places/search` — proxies Google Places API. Falls back to hardcoded suggestions if key missing.
+- **Syllable indicator:** three thin bars below textarea. Green = correct (5/7/5). Red = off. Guides, never blocks.
 - After submit: shows the single most recent other haiku from that same location before returning to viewer ("someone else was here too")
 
 ### 6. Temporal Scroll
-- At a location with multiple haikus, they are ordered chronologically oldest→newest
-- The viewer can navigate forward/backward through the timeline of a place
-- This is the core archival feature — years of haikus accumulating at a single bench
+- At a location with multiple haikus, ordered chronologically oldest → newest
+- Navigate forward/backward through the timeline of a place
+- `created_at ASC` always — oldest haiku first
 
 ---
 
 ## Database Schema (Supabase)
 
+Live at: `https://lopfvramjhsowjfkynrp.supabase.co`
+Schema file: `supabase/schema.sql` (already deployed)
+
 ```sql
--- Places: specific named venues with coordinates
 places (
-  id uuid primary key,
-  name text not null,           -- "Fushimi Inari Shrine"
-  city text,                    -- "Kyoto, Japan"
-  google_place_id text unique,  -- Google Places ID for deduplication
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  city text,
+  google_place_id text unique,
   lat float, lng float,
-  haiku_count int default 0,    -- denormalized for map performance
-  created_at timestamptz
+  haiku_count int default 0,
+  created_at timestamptz default now()
 )
 
--- Haikus: the primary content unit
 haikus (
-  id uuid primary key,
+  id uuid primary key default gen_random_uuid(),
   place_id uuid references places(id),
-  author text,                  -- nullable, display name only
+  author text,
   line_1 text not null,
   line_2 text not null,
   line_3 text not null,
-  photo_url text,               -- Supabase storage URL
-  held_count int default 0,     -- incremented by hold gesture
-  created_at timestamptz        -- the temporal layer key
+  photo_url text,
+  held_count int default 0,
+  created_at timestamptz default now()
 )
 
--- Holds: anonymous gesture records
 holds (
-  id uuid primary key,
+  id uuid primary key default gen_random_uuid(),
   haiku_id uuid references haikus(id),
-  session_id text,              -- anonymous session fingerprint
-  created_at timestamptz,
-  unique(haiku_id, session_id)  -- one hold per session per haiku
+  session_id text,
+  created_at timestamptz default now(),
+  unique(haiku_id, session_id)
 )
 ```
 
-RLS: haikus and places are publicly readable. Inserts require a valid session. Holds are insert-only per session.
+RLS enabled on all tables. Haikus and places: publicly readable, open insert. Holds: insert-only per session.
+
+Two helper functions deployed:
+- `increment_held(haiku_id uuid)` — increments held_count
+- `increment_haiku_count(place_id uuid)` — increments haiku_count on places
 
 ---
 
 ## API Routes
 
 ```
-GET  /api/haikus?place_id=&order=asc   -- temporal feed for a place
-POST /api/haikus                        -- submit new haiku
-POST /api/holds                         -- record a hold (anonymous)
-GET  /api/places/search?q=             -- Google Places autocomplete proxy
-GET  /api/places/:id                    -- single place with recent haikus
-POST /api/journey                       -- build AI journey (server action)
+GET  /api/haikus?place_id=&order=asc   — temporal feed, falls back to seed data if empty
+POST /api/haikus                        — create haiku + find-or-create place
+POST /api/holds                         — record hold, deduplicate by session_id
+GET  /api/places/search?q=             — Google Places proxy (falls back to hardcoded list)
+POST /api/journey                       — build AI journey server-side only
 ```
-
-The journey endpoint calls `claude-sonnet-4-6` server-side. Never expose the Anthropic API key to the client.
 
 ---
 
@@ -205,85 +239,59 @@ Return {n} IDs ordered by this theme. For each after the first, write a 5-8 word
 Use only these IDs: [...]. Exactly {n} IDs, exactly {n} connections (first always empty string).
 ```
 
-Always have a fallback if parsing fails — random shuffle with preset bridges.
-
----
-
-## File Structure
-
-```
-src/
-├── app/
-│   ├── page.tsx                    # Haiku viewer — primary surface
-│   ├── api/
-│   │   ├── haikus/route.ts
-│   │   ├── holds/route.ts
-│   │   ├── places/
-│   │   │   ├── search/route.ts     # Google Places proxy
-│   │   │   └── [id]/route.ts
-│   │   └── journey/route.ts        # Claude API call
-├── components/
-│   ├── HaikuViewer.tsx             # Full-bleed haiku display
-│   ├── HaikuLines.tsx              # Staggered line reveal
-│   ├── LocationTag.tsx             # Map entry trigger
-│   ├── MapOverlay.tsx              # Full-screen map
-│   ├── PlaceholderMap.tsx          # Canvas map (pre-Mapbox)
-│   ├── JourneyPlayer.tsx           # Journey mode controller
-│   ├── SubmitPanel.tsx             # Submit overlay
-│   ├── PlaceSearch.tsx             # Google Places autocomplete
-│   ├── HoldMechanic.tsx            # Long-press + ripple
-│   └── TemporalScroll.tsx          # Chronological place navigation
-├── lib/
-│   ├── supabase/
-│   │   ├── client.ts
-│   │   ├── haikus.ts
-│   │   ├── places.ts
-│   │   └── holds.ts
-│   ├── journey.ts                  # Claude journey builder
-│   ├── syllables.ts                # 5-7-5 counter
-│   └── map/
-│       ├── placeholder.ts          # Canvas map renderer
-│       └── mapbox.ts               # Mapbox integration (ready to activate)
-└── styles/
-    └── globals.css                 # CSS variables
-```
+Always fallback to random shuffle with preset bridges if parsing fails.
 
 ---
 
 ## Environment Variables
 
 ```
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-ANTHROPIC_API_KEY=
-NEXT_PUBLIC_MAPBOX_TOKEN=          # blank until provided — app falls back to canvas map
-GOOGLE_PLACES_API_KEY=
+NEXT_PUBLIC_SUPABASE_URL=https://lopfvramjhsowjfkynrp.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=           # in .env.local
+SUPABASE_SERVICE_ROLE_KEY=               # in .env.local — never commit
+ANTHROPIC_API_KEY=                       # in .env.local — required for AI journeys
+NEXT_PUBLIC_MAPBOX_TOKEN=                # blank = canvas placeholder
+GOOGLE_PLACES_API_KEY=                   # blank = hardcoded suggestions
 ```
+
+`.env.local` is gitignored. Never commit it.
 
 ---
 
 ## Key Gotchas
 
-**Never call the Anthropic API from the client.** Journey building must go through `/api/journey` server route.
+**Never call the Anthropic API from the client.** Journey building must go through `/api/journey` server route only.
 
 **`white-space: nowrap` on all haiku lines.** Without this, long lines wrap and ruin the composition.
 
-**The photo wash layer is z-index 1, above the photo.** The parchment gradient sits over the image — this is intentional and critical to the ink-on-paper feel.
+**`src={bgSrc || undefined}` on the background img tag.** Never pass an empty string to src — causes browser to reload the page.
 
-**Hold mechanic uses `mousedown`/`touchstart` on the haiku stage, not on individual elements.** The whole stage is the target. Clear the timer on `mouseup`, `mouseleave`, `touchend`.
+**The photo wash layer is z-index 1, above the photo.** The parchment gradient sits over the image — intentional and critical.
 
-**Place dots on the map are sized by `haiku_count`.** Use the denormalized count column — don't count joins on every map render.
+**Hold mechanic uses `mousedown`/`touchstart` on the haiku stage div.** The whole stage is the target. Clear timer on `mouseup`, `mouseleave`, `touchend`.
 
-**Temporal order is `created_at ASC` within a place.** Oldest haiku first. The reader scrolls forward through time.
+**Place dots on the map are sized by `haiku_count`.** Use the denormalized column — don't count joins on every render.
 
-**The wipe transition is parchment-colored, never black.** `background: var(--parchment-2)` — feels like turning a page.
+**Temporal order is `created_at ASC` within a place.** Oldest first. Reader scrolls forward through time.
 
-**Google Places proxy is required.** Never expose the Google Places API key in client-side code. All autocomplete requests go through `/api/places/search`.
+**Wipe transition is parchment-colored, never black.** `background: var(--parchment-2)` — feels like turning a page.
 
-**Syllable counter is approximate.** Use vowel-group counting — it's good enough for haiku. Don't overcorrect or make it a gate. It guides, it doesn't block.
+**Google Places proxy is required.** Never expose `GOOGLE_PLACES_API_KEY` to the client.
 
-**After submission, show one previous haiku from the same place.** Not a feed. One haiku. Then return to the viewer. This is the "someone else was here too" moment and it's important.
+**After submission, show one previous haiku from the same place.** Not a feed. One haiku. Then return to viewer.
+
+**Seed data fallback.** When Supabase tables are empty, `GET /api/haikus` falls back to `lib/seed-data.ts`. This is intentional for development and early deployment.
+
+---
+
+## Git / Codespaces
+
+- Repo: `github.com/johnsonadamc/Haiku-Review`
+- Branch: `main`
+- Always work on main. No feature branches unless explicitly requested.
+- Commit and push after every meaningful change — don't batch everything at the end.
+- Dev server: `npm run dev` in Codespaces terminal
+- Build check: `npm run build` before committing
 
 ---
 
