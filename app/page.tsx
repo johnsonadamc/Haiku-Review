@@ -419,7 +419,7 @@ export default function Home() {
             fontFamily: "'Shippori Mincho', serif", fontSize: 10, color: 'var(--ink-soft)',
             opacity: showLtag ? 0.68 : 0, marginBottom: 16,
             display: 'inline-flex', alignItems: 'center', gap: 10,
-            transition: 'opacity 0.9s', letterSpacing: '0.28em', textTransform: 'uppercase',
+            transition: showLtag ? 'opacity 0.9s' : 'none', letterSpacing: '0.28em', textTransform: 'uppercase',
             cursor: 'pointer', pointerEvents: 'all', minHeight: 44,
           }}
         >
@@ -433,7 +433,7 @@ export default function Home() {
           <div style={{
             fontFamily: "'Shippori Mincho', serif", color: 'var(--ink)',
             opacity: showL0 ? 1 : 0, transform: showL0 ? 'translateY(0)' : 'translateY(12px)',
-            transition: 'opacity 1s cubic-bezier(0.22,1,0.36,1), transform 1s cubic-bezier(0.22,1,0.36,1)',
+            transition: showL0 ? 'opacity 1s cubic-bezier(0.22,1,0.36,1), transform 1s cubic-bezier(0.22,1,0.36,1)' : 'none',
             lineHeight: 1.2, display: 'block', whiteSpace: 'nowrap',
             textShadow: '0 1px 4px rgba(245,240,232,0.55)',
             fontSize: 'clamp(22px, 3vw, 42px)', fontWeight: 500,
@@ -441,7 +441,7 @@ export default function Home() {
           <div style={{
             fontFamily: "'Shippori Mincho', serif", color: 'var(--ink)',
             opacity: showL1 ? 1 : 0, transform: showL1 ? 'translateY(0)' : 'translateY(12px)',
-            transition: 'opacity 1s cubic-bezier(0.22,1,0.36,1), transform 1s cubic-bezier(0.22,1,0.36,1)',
+            transition: showL1 ? 'opacity 1s cubic-bezier(0.22,1,0.36,1), transform 1s cubic-bezier(0.22,1,0.36,1)' : 'none',
             lineHeight: 1.2, display: 'block', whiteSpace: 'nowrap',
             textShadow: '0 1px 4px rgba(245,240,232,0.55)',
             fontSize: 'clamp(19px, 2.6vw, 37px)', fontWeight: 400,
@@ -450,7 +450,7 @@ export default function Home() {
           <div style={{
             fontFamily: "'Shippori Mincho', serif", color: 'var(--ink)',
             opacity: showL2 ? 1 : 0, transform: showL2 ? 'translateY(0)' : 'translateY(12px)',
-            transition: 'opacity 1s cubic-bezier(0.22,1,0.36,1), transform 1s cubic-bezier(0.22,1,0.36,1)',
+            transition: showL2 ? 'opacity 1s cubic-bezier(0.22,1,0.36,1), transform 1s cubic-bezier(0.22,1,0.36,1)' : 'none',
             lineHeight: 1.2, display: 'block', whiteSpace: 'nowrap',
             textShadow: '0 1px 4px rgba(245,240,232,0.55)',
             fontSize: 'clamp(17px, 2.3vw, 33px)', fontWeight: 400,
@@ -461,7 +461,7 @@ export default function Home() {
         {/* Author */}
         <div style={{
           fontFamily: "'Shippori Mincho', serif", fontSize: 11, color: 'var(--ink-soft)',
-          opacity: showAuthor ? 0.5 : 0, transition: 'opacity 0.8s',
+          opacity: showAuthor ? 0.5 : 0, transition: showAuthor ? 'opacity 0.8s' : 'none',
           letterSpacing: '0.2em', whiteSpace: 'nowrap', marginBottom: 8,
         }}>{authorText}</div>
       </div>
