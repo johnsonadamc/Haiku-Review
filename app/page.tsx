@@ -7,7 +7,6 @@ import MapOverlay from '@/components/MapOverlay';
 import SubmitPanel from '@/components/SubmitPanel';
 import YourHaikus from '@/components/YourHaikus';
 import TimelineSlider from '@/components/TimelineSlider';
-import PageCurl, { type PageCurlHandle } from '@/components/PageCurl';
 
 type HaikuPost = {
   id: string | number;
@@ -121,8 +120,10 @@ export default function Home() {
   const journeyBuildingRef = useRef(false);
   // Mirrors ci — lets timeline callbacks read the current journey index without stale closures
   const journeyIndexRef = useRef(0);
-  // Page curl canvas — used for journey navigation transitions
-  const curlRef = useRef<PageCurlHandle>(null);
+  // CSS 3D curl state — set on navigate, cleared by onAnimationEnd
+  const [curlState, setCurlState] = useState<{ direction: 'forward' | 'backward'; bgSrc: string } | null>(null);
+  // Ref so doNavigate captures current bgSrc without stale closure
+  const bgSrcRef = useRef('');
 
   // Timeline slider state
   const [placeHaikus, setPlaceHaikus] = useState<HaikuPost[]>([]);
@@ -285,33 +286,20 @@ export default function Home() {
     ? (placeHaikus[placeHaikuIndex] as HaikuPost | undefined)
     : journeyPost;
 
-  // Curl + reveal a new journey haiku. Always clears timeline mode.
+  // CSS 3D curl + reveal a new journey haiku. Always clears timeline mode.
   // direction: 'forward' = swipe left/next, 'backward' = swipe right/prev.
-  // curlRef is intentionally omitted from deps — refs are stable.
   const doNavigate = useCallback((newIdx: number, conn?: string, journeyType?: string, direction: 'forward' | 'backward' = 'forward') => {
     if (conn) setThreadText(conn);
     if (journeyType) setThreadType(journeyType);
     setInTimelineMode(false);
     setIsTransitioning(true);
-    if (curlRef.current) {
-      curlRef.current.triggerCurl(direction, () => {
-        // Fires at t=0.5 (~190ms) — swap content while curl still running
-        setCi(newIdx);
-        triggerReveal();
-        // isTransitioning clears at curl end (~190ms later = ~380ms total)
-        setTimeout(() => setIsTransitioning(false), 200);
-      });
-    } else {
-      // Canvas unavailable — fall back to wipe
-      setWipeActive(true);
-      setTimeout(() => {
-        setCi(newIdx);
-        triggerReveal();
-        setWipeActive(false);
-        setTimeout(() => setIsTransitioning(false), 420);
-      }, 340);
-    }
-  }, [triggerReveal]); // eslint-disable-line react-hooks/exhaustive-deps
+    setCurlState({ direction, bgSrc: bgSrcRef.current });
+    setTimeout(() => {
+      setCi(newIdx);
+      triggerReveal();
+    }, 190);
+    setTimeout(() => setIsTransitioning(false), 400);
+  }, [triggerReveal]);
 
   // Wipe + show a different haiku from the same place (enters/stays in timeline mode).
   const doTimelineNavigate = useCallback((newPlaceIdx: number) => {
@@ -519,6 +507,7 @@ export default function Home() {
   const placeCount = new Set(posts.map((p: HaikuPost) => getPlace(p)).filter(Boolean)).size;
 
   const bgSrc = currentPost ? getBg(currentPost) : '';
+  bgSrcRef.current = bgSrc;
   const lines = currentPost ? getLines(currentPost) : ['', '', ''];
   const locationText = currentPost ? getLocationLabel(currentPost) : '';
   const authorText = currentPost ? `— ${currentPost.author || 'anonymous'}` : '';
@@ -543,8 +532,24 @@ export default function Home() {
         transition: 'opacity 0.38s ease',
       }} />
 
-      {/* Page curl — used for journey navigation */}
-      <PageCurl ref={curlRef} />
+      {/* CSS 3D page curl — fires on journey navigation, clears when animation ends */}
+      {curlState && (
+        <div
+          className={curlState.direction === 'forward' ? 'page-curl-exit-forward' : 'page-curl-exit-backward'}
+          style={{
+            backgroundImage: curlState.bgSrc ? `url("${curlState.bgSrc}")` : undefined,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundColor: 'var(--parchment)',
+          }}
+          onAnimationEnd={() => setCurlState(null)}
+        >
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'linear-gradient(to top, rgba(245,240,232,0.97) 0%, rgba(245,240,232,0.88) 22%, rgba(245,240,232,0.62) 48%, rgba(245,240,232,0.2) 72%, rgba(245,240,232,0.04) 100%)',
+          }} />
+        </div>
+      )}
 
       {/* Atmospheric open — gold rule draws left to right (800ms), then fades (400ms) */}
       {!appReady && (
