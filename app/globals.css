@@ -157,25 +157,13 @@ body::after {
 
 /* ── PAGE CURL TRANSITION ── */
 @keyframes curl-forward {
-  0% {
-    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
-    filter: drop-shadow(0px 0px 0px rgba(30,26,20,0));
-  }
-  100% {
-    clip-path: polygon(0% 0%, 100% 0%, 0% 0%, 0% 100%);
-    filter: drop-shadow(-8px 4px 12px rgba(30,26,20,0.25));
-  }
+  0%   { clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%); }
+  100% { clip-path: polygon(0% 0%, 100% 0%, 0% 0%, 0% 100%); }
 }
 
 @keyframes curl-backward {
-  0% {
-    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
-    filter: drop-shadow(0px 0px 0px rgba(30,26,20,0));
-  }
-  100% {
-    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 100% 0%);
-    filter: drop-shadow(8px 4px 12px rgba(30,26,20,0.25));
-  }
+  0%   { clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%); }
+  100% { clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 100% 0%); }
 }
 
 .page-curl-exit-forward {
