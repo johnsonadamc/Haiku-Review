@@ -118,6 +118,8 @@ export default function Home() {
   // Pre-built next journey, ready to load seamlessly at end of current
   const nextJourneyRef = useRef<Journey | null>(null);
   const journeyBuildingRef = useRef(false);
+  // Mirrors ci — lets timeline callbacks read the current journey index without stale closures
+  const journeyIndexRef = useRef(0);
 
   // Timeline slider state
   const [placeHaikus, setPlaceHaikus] = useState<HaikuPost[]>([]);
@@ -233,6 +235,9 @@ export default function Home() {
     });
   }, [ci, journey, posts, appReady]);
 
+  // Keep journeyIndexRef in sync with ci state
+  useEffect(() => { journeyIndexRef.current = ci; }, [ci]);
+
   // Fetch all haikus at the current journey post's place when place changes.
   // Cache by place_id — only fetches on place change, uses cache for same-place navigation.
   const journeyPost = journey ? journey.seq[ci] : undefined;
@@ -277,7 +282,8 @@ export default function Home() {
     ? (placeHaikus[placeHaikuIndex] as HaikuPost | undefined)
     : journeyPost;
 
-  // conn/journeyType kept in state for future left-edge hairline rule — not displayed
+  // Wipe + reveal a new journey haiku. Always clears timeline mode.
+  // Stored conn/journeyType are for a future left-edge hairline rule — not displayed.
   const doNavigate = useCallback((newIdx: number, conn?: string, journeyType?: string) => {
     if (conn) setThreadText(conn);
     if (journeyType) setThreadType(journeyType);
@@ -292,7 +298,7 @@ export default function Home() {
     }, 340);
   }, [triggerReveal]);
 
-  // Timeline navigation: wipe + show a different haiku from the same place
+  // Wipe + show a different haiku from the same place (enters/stays in timeline mode).
   const doTimelineNavigate = useCallback((newPlaceIdx: number) => {
     setIsTransitioning(true);
     setWipeActive(true);
@@ -305,48 +311,13 @@ export default function Home() {
     }, 340);
   }, [triggerReveal]);
 
-  // Exit timeline mode: wipe back to the journey haiku at ci
-  const doTimelineReturn = useCallback(() => {
-    clearRevealTimers();
-    setIsTransitioning(true);
-    setWipeActive(true);
-    setTimeout(() => {
-      setInTimelineMode(false);
-      triggerReveal();
-      setWipeActive(false);
-      setTimeout(() => setIsTransitioning(false), 420);
-    }, 340);
-  }, [triggerReveal, clearRevealTimers]);
-
-  // Called from TimelineSlider onSelect
-  const handleTimelineSelect = useCallback((index: number) => {
-    // Tapping the tick for the current journey haiku — enter timeline mode in place, no animation
-    if (!inTimelineMode && index === placeHaikuIndex) {
-      setInTimelineMode(true);
-      return;
-    }
-    doTimelineNavigate(index);
-  }, [inTimelineMode, placeHaikuIndex, doTimelineNavigate]);
-
-  // Directional navigation within the place timeline (swipe/arrow in timeline mode)
-  const navigateTimeline = useCallback((dir: number) => {
-    const ni = placeHaikuIndex + dir;
-    if (ni < 0 || ni >= placeHaikus.length) {
-      doTimelineReturn(); // boundary — always allowed, no isTransitioning guard
-      return;
-    }
-    if (isTransitioning) return;
-    doTimelineNavigate(ni);
-  }, [isTransitioning, placeHaikuIndex, placeHaikus.length, doTimelineNavigate, doTimelineReturn]);
-
-  const navigate = useCallback((dir: number) => {
-    if (isTransitioning || !appReady || !journey) return;
-    const ni = ci + dir;
-
+  // Core journey navigation — no isTransitioning guard so timeline boundary exits are seamless.
+  // Reads journeyIndexRef so callers don't need ci in their closure.
+  const advanceJourney = useCallback((dir: 1 | -1) => {
+    if (!appReady || !journey) return;
+    const ni = journeyIndexRef.current + dir;
     if (ni < 0) return;
-
     if (ni >= journey.seq.length) {
-      // End of sequence — load the pre-built continuation seamlessly
       if (nextJourneyRef.current) {
         const newJ = nextJourneyRef.current;
         nextJourneyRef.current = null;
@@ -354,7 +325,6 @@ export default function Home() {
         setJourney(newJ);
         doNavigate(0, '', newJ.type);
       } else {
-        // Continuation still building — show wipe and poll until ready
         setIsTransitioning(true);
         setWipeActive(true);
         const poll = () => {
@@ -364,6 +334,7 @@ export default function Home() {
             globalJourneyRef.current = newJ;
             setJourney(newJ);
             setCi(0);
+            journeyIndexRef.current = 0;
             setWipeActive(false);
             triggerReveal();
             setTimeout(() => setIsTransitioning(false), 420);
@@ -375,44 +346,96 @@ export default function Home() {
       }
       return;
     }
-
     doNavigate(ni, journey.conn[ni], journey.type);
-  }, [isTransitioning, appReady, journey, ci, doNavigate, triggerReveal]);
+  }, [appReady, journey, doNavigate, triggerReveal]);
 
-  // keyboard nav — routes through timeline when in timeline mode
+  // Exit timeline mode.
+  //   journeyDir = 0  → wipe back to current journey haiku ("← back to journey" button)
+  //   journeyDir = 1  → advance to next journey haiku (swiped past newest place haiku)
+  //   journeyDir = -1 → go to prev journey haiku (swiped past oldest place haiku)
+  const doTimelineReturn = useCallback((journeyDir: 0 | 1 | -1 = 0) => {
+    clearRevealTimers();
+    setInTimelineMode(false);
+    if (journeyDir !== 0) {
+      advanceJourney(journeyDir);
+    } else {
+      setIsTransitioning(true);
+      setWipeActive(true);
+      setTimeout(() => {
+        triggerReveal();
+        setWipeActive(false);
+        setTimeout(() => setIsTransitioning(false), 420);
+      }, 340);
+    }
+  }, [clearRevealTimers, advanceJourney, triggerReveal]);
+
+  // Called from TimelineSlider onSelect — enters timeline mode when user picks a different tick.
+  const handleTimelineSelect = useCallback((index: number) => {
+    if (!inTimelineMode && index === placeHaikuIndex) {
+      // Tapped the tick for the current (most recent) haiku — arm timeline mode, no wipe
+      setInTimelineMode(true);
+      return;
+    }
+    doTimelineNavigate(index);
+  }, [inTimelineMode, placeHaikuIndex, doTimelineNavigate]);
+
+  // Navigation within the place timeline.
+  //   dir = +1: forward in time (toward present / newer). Boundary → advance AI journey.
+  //   dir = -1: back in time (toward past / older).    Boundary → prev AI journey haiku.
+  const navigateTimeline = useCallback((dir: 1 | -1) => {
+    const ni = placeHaikuIndex + dir;
+    if (ni >= placeHaikus.length) { doTimelineReturn(1); return; }
+    if (ni < 0) { doTimelineReturn(-1); return; }
+    if (isTransitioning) return;
+    doTimelineNavigate(ni);
+  }, [isTransitioning, placeHaikuIndex, placeHaikus.length, doTimelineNavigate, doTimelineReturn]);
+
+  // Journey navigation — isTransitioning guard lives here; advanceJourney is the unguarded core.
+  const navigate = useCallback((dir: 1 | -1) => {
+    if (isTransitioning || !appReady) return;
+    advanceJourney(dir);
+  }, [isTransitioning, appReady, advanceJourney]);
+
+  // Keyboard nav:
+  //   ArrowRight = swipe left = next haiku / forward in time (+1)
+  //   ArrowLeft  = swipe right = prev haiku / back in time  (-1)
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        if (inTimelineMode) navigateTimeline(1); else navigate(1);  // timeline: toward present
+      if (e.key === 'ArrowRight') {
+        if (inTimelineMode) navigateTimeline(1); else navigate(1);
+      } else if (e.key === 'ArrowLeft') {
+        if (inTimelineMode) navigateTimeline(-1); else navigate(-1);
+      } else if (e.key === 'Escape') {
+        setMapOpen(false); setSubmitOpen(false); setYourHaikusOpen(false);
       }
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        if (inTimelineMode) navigateTimeline(-1); else navigate(-1); // timeline: back in time
-      }
-      if (e.key === 'Escape') { setMapOpen(false); setSubmitOpen(false); setYourHaikusOpen(false); }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [navigate, navigateTimeline, inTimelineMode]);
 
-  // swipe — routes through timeline when in timeline mode
+  // Swipe nav:
+  //   dx < 0 (finger moves left)  = next haiku / forward in time (+1)
+  //   dx > 0 (finger moves right) = prev haiku / back in time   (-1)
   useEffect(() => {
-    let tx: number | null = null;
+    let startX: number | null = null;
     const onStart = (e: TouchEvent) => {
       if (mapOpen) return;
-      tx = e.touches[0].clientX;
+      startX = e.touches[0].clientX;
     };
     const onEnd = (e: TouchEvent) => {
-      if (tx === null) return;
-      const dx = e.changedTouches[0].clientX - tx;
-      if (Math.abs(dx) > 50) {
-        if (inTimelineMode) navigateTimeline(dx < 0 ? -1 : 1);
-        else navigate(dx < 0 ? 1 : -1);
-      }
-      tx = null;
+      if (startX === null) return;
+      const dx = e.changedTouches[0].clientX - startX;
+      startX = null;
+      if (Math.abs(dx) < 30) return;
+      const dir = (dx < 0 ? 1 : -1) as 1 | -1;
+      if (inTimelineMode) navigateTimeline(dir); else navigate(dir);
     };
     window.addEventListener('touchstart', onStart, { passive: true });
     window.addEventListener('touchend', onEnd, { passive: true });
-    return () => { window.removeEventListener('touchstart', onStart); window.removeEventListener('touchend', onEnd); };
+    return () => {
+      window.removeEventListener('touchstart', onStart);
+      window.removeEventListener('touchend', onEnd);
+    };
   }, [navigate, navigateTimeline, inTimelineMode, mapOpen]);
 
   // hold mechanic
@@ -578,7 +601,7 @@ export default function Home() {
         placeHaikus={placeHaikus}
         activeIndex={placeHaikuIndex}
         onSelect={handleTimelineSelect}
-        onReturnToJourney={doTimelineReturn}
+        onReturnToJourney={() => doTimelineReturn(0)}
         visible={sliderVisible}
       />
 
