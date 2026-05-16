@@ -1,17 +1,13 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import type { CSSProperties, MouseEvent } from 'react';
 
-type Haiku = {
-  id: string | number;
-  created_at?: string;
-};
+type Haiku = { id: string | number; created_at?: string };
 
 type Props = {
   placeHaikus: Haiku[];
   activeIndex: number;
   onSelect: (index: number) => void;
-  onReturnToJourney: () => void;
   visible: boolean;
 };
 
@@ -24,82 +20,20 @@ const GOLD_FAINT = 'rgba(139,106,42,0.28)';
 // Track sits 14px from the right edge of the 80px container = 14px from the screen edge.
 const TRACK_RIGHT = 14;
 
-export default function TimelineSlider({
-  placeHaikus, activeIndex, onSelect, onReturnToJourney, visible,
-}: Props) {
+export default function TimelineSlider({ placeHaikus, activeIndex, onSelect, visible }: Props) {
   const n = placeHaikus.length;
-  const trackRef = useRef<HTMLDivElement>(null);
-  const [liveIndex, setLiveIndex] = useState<number | null>(null);
-  const [hasInteracted, setHasInteracted] = useState(false);
-  // Holds the cleanup fn for any active drag so we can cancel on unmount/hide
-  const dragCleanupRef = useRef<(() => void) | null>(null);
-
-  useEffect(() => {
-    if (!visible) {
-      setHasInteracted(false);
-      setLiveIndex(null);
-      dragCleanupRef.current?.();
-      dragCleanupRef.current = null;
-    }
-  }, [visible]);
-
-  useEffect(() => {
-    return () => { dragCleanupRef.current?.(); };
-  }, []);
-
-  // Always reads the live DOM rect so getBoundingClientRect is always fresh.
-  const indexFromY = (clientY: number): number => {
-    const el = trackRef.current;
-    if (!el || n <= 1) return 0;
-    const { top, height } = el.getBoundingClientRect();
-    if (height === 0) return 0;
-    const pct = Math.max(0, Math.min(1, (clientY - top) / height));
-    return Math.round(pct * (n - 1));
-  };
-
-  // Attach window listeners synchronously so a fast tap (touchstart → touchend)
-  // is always captured — no useEffect timing race.
-  const startDrag = (clientY: number) => {
-    dragCleanupRef.current?.(); // cancel any previous drag
-
-    setHasInteracted(true);
-    setLiveIndex(indexFromY(clientY));
-
-    const onMove = (e: MouseEvent | TouchEvent) => {
-      const y = 'touches' in e ? e.touches[0].clientY : (e as MouseEvent).clientY;
-      setLiveIndex(indexFromY(y));
-    };
-
-    const onUp = (e: MouseEvent | TouchEvent) => {
-      const y = 'changedTouches' in e
-        ? e.changedTouches[0].clientY
-        : (e as MouseEvent).clientY;
-      cleanup();
-      onSelect(indexFromY(y));
-    };
-
-    const cleanup = () => {
-      setLiveIndex(null);
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('touchmove', onMove);
-      window.removeEventListener('mouseup', onUp);
-      window.removeEventListener('touchend', onUp);
-      if (dragCleanupRef.current === cleanup) dragCleanupRef.current = null;
-    };
-
-    dragCleanupRef.current = cleanup;
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('touchmove', onMove, { passive: true });
-    window.addEventListener('mouseup', onUp);
-    window.addEventListener('touchend', onUp);
-  };
-
   if (n < 2) return null;
 
-  const displayIndex = liveIndex !== null ? liveIndex : activeIndex;
-  const isDragging = liveIndex !== null;
+  // Map click Y position to nearest tick index — same math as the old drag indexFromY.
+  const handleTrackClick = (e: MouseEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    const { top, height } = el.getBoundingClientRect();
+    if (height === 0) return;
+    const pct = Math.max(0, Math.min(1, (e.clientY - top) / height));
+    onSelect(Math.round(pct * (n - 1)));
+  };
 
-  const labelBase: React.CSSProperties = {
+  const labelBase: CSSProperties = {
     fontFamily: "'Shippori Mincho', serif",
     color: 'var(--ink-faint)',
     letterSpacing: '0.15em',
@@ -113,17 +47,14 @@ export default function TimelineSlider({
       opacity: visible ? 1 : 0, transition: 'opacity 0.4s',
       userSelect: 'none', WebkitUserSelect: 'none',
     }}>
-      {/* Track — the entire area is the drag target */}
+      {/* Track — click anywhere to jump to nearest haiku */}
       <div
-        ref={trackRef}
-        onMouseDown={e => { e.preventDefault(); startDrag(e.clientY); }}
-        onTouchStart={e => { e.stopPropagation(); startDrag(e.touches[0].clientY); }}
+        onClick={handleTrackClick}
         style={{
           position: 'relative',
           height: 'min(45vh, 360px)',
           width: 80,
-          cursor: isDragging ? 'grabbing' : 'ns-resize',
-          touchAction: 'none',
+          cursor: 'pointer',
         }}
       >
         {/* Track line */}
@@ -135,7 +66,7 @@ export default function TimelineSlider({
 
         {placeHaikus.map((h, i) => {
           const pct = n > 1 ? (i / (n - 1)) * 100 : 50;
-          const isActive = i === displayIndex;
+          const isActive = i === activeIndex;
           const yr = haikuYear(h);
           const showYear = yr && (i === 0 || haikuYear(placeHaikus[i - 1]) !== yr);
           const tickWidth = isActive ? 10 : 6;
@@ -158,7 +89,7 @@ export default function TimelineSlider({
                 </div>
               )}
 
-              {/* Tick mark — 1px min height so sub-pixel rendering doesn't hide it */}
+              {/* Tick mark */}
               <div style={{
                 position: 'absolute', top: `${pct}%`,
                 right: tickRight,
@@ -166,42 +97,25 @@ export default function TimelineSlider({
                 height: 1,
                 background: isActive ? GOLD : GOLD_FAINT,
                 transform: 'translateY(-50%)',
-                transition: isDragging ? 'none' : 'right 0.15s, width 0.15s, background 0.2s',
+                transition: 'right 0.15s, width 0.15s, background 0.2s',
               }} />
 
               {/* Thumb circle — only at active tick */}
               {isActive && (
                 <div style={{
                   position: 'absolute', top: `${pct}%`,
-                  // right: TRACK_RIGHT - 3 → center at TRACK_RIGHT - 3 + 6/2 = TRACK_RIGHT ✓
                   right: TRACK_RIGHT - 3,
                   width: 6, height: 6, borderRadius: '50%',
                   background: GOLD,
                   transform: 'translateY(-50%)',
                   boxShadow: '0 0 0 3px rgba(138,106,42,0.13)',
-                  transition: isDragging ? 'none' : 'top 0.15s',
+                  transition: 'top 0.15s',
                 }} />
               )}
             </div>
           );
         })}
       </div>
-
-      {/* Return symbol — fades in after first interaction, quiet affordance to exit timeline */}
-      <button
-        onClick={e => { e.stopPropagation(); onReturnToJourney(); }}
-        style={{
-          background: 'none', border: 'none', cursor: 'pointer',
-          color: 'var(--ink-faint)', fontSize: 10,
-          width: 80, paddingRight: TRACK_RIGHT, textAlign: 'right',
-          marginTop: 12, display: 'block', lineHeight: 1,
-          opacity: hasInteracted ? 0.55 : 0,
-          transition: 'opacity 0.4s',
-          pointerEvents: hasInteracted ? 'all' : 'none',
-        }}
-      >
-        ✦
-      </button>
     </div>
   );
 }

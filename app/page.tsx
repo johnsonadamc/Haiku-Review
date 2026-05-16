@@ -358,26 +358,6 @@ export default function Home() {
     doNavigate(ni, journey.conn[ni], journey.type, direction);
   }, [appReady, journey, doNavigate, triggerReveal]);
 
-  // Exit timeline mode.
-  //   journeyDir = 0  → wipe back to current journey haiku ("← back to journey" button)
-  //   journeyDir = 1  → advance to next journey haiku (swiped past newest place haiku)
-  //   journeyDir = -1 → go to prev journey haiku (swiped past oldest place haiku)
-  const doTimelineReturn = useCallback((journeyDir: 0 | 1 | -1 = 0) => {
-    clearRevealTimers();
-    setInTimelineMode(false);
-    if (journeyDir !== 0) {
-      advanceJourney(journeyDir);
-    } else {
-      setIsTransitioning(true);
-      setWipeActive(true);
-      setTimeout(() => {
-        triggerReveal();
-        setWipeActive(false);
-        setTimeout(() => setIsTransitioning(false), 420);
-      }, 340);
-    }
-  }, [clearRevealTimers, advanceJourney, triggerReveal]);
-
   // Called from TimelineSlider onSelect — enters timeline mode when user picks a different tick.
   const handleTimelineSelect = useCallback((index: number) => {
     if (!inTimelineMode && index === placeHaikuIndex) {
@@ -390,15 +370,15 @@ export default function Home() {
   }, [inTimelineMode, placeHaikuIndex, doTimelineNavigate]);
 
   // Navigation within the place timeline.
-  //   dir = +1: forward in time (toward present / newer). Boundary → advance AI journey.
-  //   dir = -1: back in time (toward past / older).    Boundary → prev AI journey haiku.
+  //   dir = -1: back in time (toward past / older). Clamps at oldest — does nothing at boundary.
+  //   dir = +1: forward in time (toward present / newer). Silently exits timeline at newest.
   const navigateTimeline = useCallback((dir: 1 | -1) => {
-    const ni = placeHaikuIndex + dir;
-    if (ni >= placeHaikus.length) { doTimelineReturn(1); return; }
-    if (ni < 0) { doTimelineReturn(-1); return; }
     if (isTransitioning) return;
+    const ni = placeHaikuIndex + dir;
+    if (ni < 0) return;
+    if (ni >= placeHaikus.length) { setInTimelineMode(false); return; }
     doTimelineNavigate(ni, dir);
-  }, [isTransitioning, placeHaikuIndex, placeHaikus.length, doTimelineNavigate, doTimelineReturn]);
+  }, [isTransitioning, placeHaikuIndex, placeHaikus.length, doTimelineNavigate]);
 
   // Journey navigation — isTransitioning guard lives here; advanceJourney is the unguarded core.
   const navigate = useCallback((dir: 1 | -1) => {
@@ -407,38 +387,55 @@ export default function Home() {
   }, [isTransitioning, appReady, advanceJourney]);
 
   // Keyboard nav:
-  //   ArrowRight = swipe left = next haiku / forward in time (+1)
-  //   ArrowLeft  = swipe right = prev haiku / back in time  (-1)
+  //   ArrowLeft/Right = journey nav (always; if in timeline on an older haiku, ignored for journey)
+  //   ArrowUp/Down    = timeline nav (only when place has 2+ haikus)
+  //   ArrowLeft/Right also allowed in timeline mode only when at the most-recent (journey) haiku
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      const atMostRecent = placeHaikuIndex === placeHaikus.length - 1;
       if (e.key === 'ArrowRight') {
-        if (inTimelineMode) navigateTimeline(1); else navigate(1);
+        if (!inTimelineMode || atMostRecent) navigate(1);
       } else if (e.key === 'ArrowLeft') {
-        if (inTimelineMode) navigateTimeline(-1); else navigate(-1);
+        if (!inTimelineMode || atMostRecent) navigate(-1);
+      } else if (e.key === 'ArrowDown') {
+        if (placeHaikus.length > 1) navigateTimeline(1);
+      } else if (e.key === 'ArrowUp') {
+        if (placeHaikus.length > 1) navigateTimeline(-1);
       } else if (e.key === 'Escape') {
         setMapOpen(false); setSubmitOpen(false); setYourHaikusOpen(false);
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [navigate, navigateTimeline, inTimelineMode]);
+  }, [navigate, navigateTimeline, inTimelineMode, placeHaikuIndex, placeHaikus.length]);
 
-  // Swipe nav:
-  //   dx < 0 (finger moves left)  = next haiku / forward in time (+1)
-  //   dx > 0 (finger moves right) = prev haiku / back in time   (-1)
+  // Swipe nav — whole-screen gestures with horizontal/vertical intent split:
+  //   Horizontal (|dx| > |dy|): journey nav. Blocked in timeline unless at most-recent haiku.
+  //   Vertical   (|dy| >= |dx|): timeline nav. Only active when place has 2+ haikus.
   useEffect(() => {
     let startX: number | null = null;
+    let startY: number | null = null;
     const onStart = (e: TouchEvent) => {
       if (mapOpen) return;
       startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
     };
     const onEnd = (e: TouchEvent) => {
-      if (startX === null) return;
+      if (startX === null || startY === null) return;
       const dx = e.changedTouches[0].clientX - startX;
-      startX = null;
-      if (Math.abs(dx) < 30) return;
-      const dir = (dx < 0 ? 1 : -1) as 1 | -1;
-      if (inTimelineMode) navigateTimeline(dir); else navigate(dir);
+      const dy = e.changedTouches[0].clientY - startY;
+      startX = null; startY = null;
+      const isHorizontal = Math.abs(dx) > Math.abs(dy);
+      if (isHorizontal) {
+        if (Math.abs(dx) < 30) return;
+        const atMostRecent = placeHaikuIndex === placeHaikus.length - 1;
+        if (inTimelineMode && !atMostRecent) return; // blocked deeper in timeline
+        navigate(dx < 0 ? 1 : -1);
+      } else {
+        if (Math.abs(dy) < 30 || placeHaikus.length < 2) return;
+        // dy < 0 = finger moved up = going forward in time (+1)
+        navigateTimeline(dy < 0 ? 1 : -1);
+      }
     };
     window.addEventListener('touchstart', onStart, { passive: true });
     window.addEventListener('touchend', onEnd, { passive: true });
@@ -446,7 +443,7 @@ export default function Home() {
       window.removeEventListener('touchstart', onStart);
       window.removeEventListener('touchend', onEnd);
     };
-  }, [navigate, navigateTimeline, inTimelineMode, mapOpen]);
+  }, [navigate, navigateTimeline, inTimelineMode, placeHaikuIndex, placeHaikus.length, mapOpen]);
 
   // hold mechanic
   const fireRipple = useCallback(() => {
@@ -657,7 +654,6 @@ export default function Home() {
         placeHaikus={placeHaikus}
         activeIndex={placeHaikuIndex}
         onSelect={handleTimelineSelect}
-        onReturnToJourney={() => doTimelineReturn(0)}
         visible={sliderVisible}
       />
 
@@ -737,7 +733,7 @@ export default function Home() {
           position: 'fixed', left: '50%', bottom: 30, transform: 'translateX(-50%)',
           zIndex: 20, display: 'flex', alignItems: 'center', gap: 4,
         }}>
-          <button className="nb" onClick={() => inTimelineMode ? navigateTimeline(-1) : navigate(-1)} style={{
+          <button className="nb" onClick={() => navigate(-1)} style={{
             background: 'none', border: 'none', cursor: 'pointer', padding: '8px 16px',
             color: 'var(--ink-soft)', opacity: 0.38,
             display: 'flex', alignItems: 'center', gap: 7,
@@ -748,7 +744,7 @@ export default function Home() {
             prev
           </button>
           <div style={{ width: 1, height: 14, background: 'var(--gold)', opacity: 0.3 }} />
-          <button className="nb" onClick={() => inTimelineMode ? navigateTimeline(1) : navigate(1)} style={{
+          <button className="nb" onClick={() => navigate(1)} style={{
             background: 'none', border: 'none', cursor: 'pointer', padding: '8px 16px',
             color: 'var(--ink-soft)', opacity: 0.38,
             display: 'flex', alignItems: 'center', gap: 7,
@@ -758,17 +754,6 @@ export default function Home() {
             next
             <svg className="nb-ar" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </button>
-        </div>
-      )}
-
-      {/* Timeline position — only shown in timeline mode */}
-      {appReady && inTimelineMode && (
-        <div style={{
-          position: 'fixed', left: '50%', bottom: 16, transform: 'translateX(-50%)',
-          fontFamily: "'Shippori Mincho', serif", fontSize: 9, color: 'var(--ink-faint)',
-          opacity: 0.5, zIndex: 20, whiteSpace: 'nowrap', letterSpacing: '0.28em',
-        }}>
-          {`${placeHaikuIndex + 1} of ${placeHaikus.length} at this place`}
         </div>
       )}
 
