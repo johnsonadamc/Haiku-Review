@@ -201,7 +201,7 @@ export default function TimelineSlider({
           pointerEvents: hasInteracted ? 'all' : 'none',
         }}
       >
-        ← journey
+        ← back to journey
       </button>
     </div>
   );

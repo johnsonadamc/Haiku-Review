@@ -64,21 +64,36 @@ type _getCityRef = typeof getCity;
 
 const BRIDGES = ['the thread continues', 'another voice, same sky', 'silence answered', 'the mood deepens', 'worlds apart, same ache'];
 
+// One haiku per place — the most recent (highest created_at). Journey always shows the "now".
+function mostRecentPerPlace(posts: HaikuPost[]): HaikuPost[] {
+  const map = new Map<string, HaikuPost>();
+  for (const p of posts) {
+    const key = p.place_id || getPlace(p);
+    if (!key) continue;
+    const existing = map.get(key);
+    if (!existing || (p.created_at || '') > (existing.created_at || '')) {
+      map.set(key, p);
+    }
+  }
+  return Array.from(map.values());
+}
+
 async function buildJourneyFromPool(haikus: HaikuPost[], placeName?: string): Promise<Journey> {
+  const pool = mostRecentPerPlace(haikus);
   try {
     const res = await fetch('/api/journey', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ posts: haikus, placeName: placeName || '' }),
+      body: JSON.stringify({ posts: pool, placeName: placeName || '' }),
     });
     const data = await res.json();
     const seq = (data.seq || [])
-      .map((id: string | number) => haikus.find((p: HaikuPost) => String(p.id) === String(id)))
+      .map((id: string | number) => pool.find((p: HaikuPost) => String(p.id) === String(id)))
       .filter(Boolean) as HaikuPost[];
     if (seq.length === 0) throw new Error('empty');
     return { seq, conn: data.conn || [], type: data.type };
   } catch {
-    const shuffled = [...haikus].sort(() => Math.random() - 0.5).slice(0, Math.min(6, haikus.length));
+    const shuffled = [...pool].sort(() => Math.random() - 0.5).slice(0, Math.min(6, pool.length));
     return {
       seq: shuffled,
       conn: shuffled.map((_, i) => i === 0 ? '' : BRIDGES[i - 1] || 'the thread continues'),
@@ -227,9 +242,10 @@ export default function Home() {
     const postId = journeyPost.id;
 
     if (placeHaikusCacheRef.current?.placeId === placeId) {
-      // Same place — just sync the active index to the current journey haiku
-      const idx = placeHaikusCacheRef.current.haikus.findIndex(h => String(h.id) === String(postId));
-      if (idx >= 0) setPlaceHaikuIndex(idx);
+      // Same place — journey post is the most recent; position thumb at the end (present)
+      const cached = placeHaikusCacheRef.current.haikus;
+      const idx = cached.findIndex(h => String(h.id) === String(postId));
+      setPlaceHaikuIndex(idx >= 0 ? idx : cached.length - 1);
       return;
     }
 
@@ -247,8 +263,9 @@ export default function Home() {
         const haikus = (data || []) as HaikuPost[];
         placeHaikusCacheRef.current = { placeId, haikus };
         setPlaceHaikus(haikus);
+        // Journey always shows most recent — thumb starts at the bottom (present)
         const idx = haikus.findIndex(h => String(h.id) === String(postId));
-        setPlaceHaikuIndex(Math.max(0, idx));
+        setPlaceHaikuIndex(idx >= 0 ? idx : haikus.length - 1);
       } catch {
         setPlaceHaikus([]); setPlaceHaikuIndex(0);
       }
@@ -366,10 +383,10 @@ export default function Home() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        if (inTimelineMode) navigateTimeline(1); else navigate(1);
+        if (inTimelineMode) navigateTimeline(1); else navigate(1);  // timeline: toward present
       }
       if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        if (inTimelineMode) navigateTimeline(-1); else navigate(-1);
+        if (inTimelineMode) navigateTimeline(-1); else navigate(-1); // timeline: back in time
       }
       if (e.key === 'Escape') { setMapOpen(false); setSubmitOpen(false); setYourHaikusOpen(false); }
     };
@@ -388,7 +405,7 @@ export default function Home() {
       if (tx === null) return;
       const dx = e.changedTouches[0].clientX - tx;
       if (Math.abs(dx) > 50) {
-        if (inTimelineMode) navigateTimeline(dx < 0 ? 1 : -1);
+        if (inTimelineMode) navigateTimeline(dx < 0 ? -1 : 1);
         else navigate(dx < 0 ? 1 : -1);
       }
       tx = null;
