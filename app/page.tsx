@@ -122,7 +122,9 @@ export default function Home() {
   const journeyIndexRef = useRef(0);
   // CSS 3D curl state — set on navigate, cleared by onAnimationEnd
   const [curlState, setCurlState] = useState<{ direction: 'forward' | 'backward'; bgSrc: string } | null>(null);
-  // Ref so doNavigate captures current bgSrc without stale closure
+  // Timeline vertical slide state — exit overlay, entering card is the haiku stage itself
+  const [timelineSlideState, setTimelineSlideState] = useState<{ exitClass: string; bgSrc: string } | null>(null);
+  // Ref so doNavigate/doTimelineNavigate captures current bgSrc without stale closure
   const bgSrcRef = useRef('');
 
   // Timeline slider state
@@ -301,17 +303,19 @@ export default function Home() {
     setTimeout(() => setIsTransitioning(false), 430);
   }, [triggerReveal]);
 
-  // Wipe + show a different haiku from the same place (enters/stays in timeline mode).
-  const doTimelineNavigate = useCallback((newPlaceIdx: number) => {
+  // Vertical card slide + show a different haiku from the same place (enters/stays in timeline mode).
+  // direction: -1 = going to older haiku (exit up, enter from bottom)
+  //            +1 = going to newer haiku (exit down, enter from top)
+  const doTimelineNavigate = useCallback((newPlaceIdx: number, direction: 1 | -1) => {
+    const exitClass = direction === -1 ? 'timeline-exit-up' : 'timeline-exit-down';
     setIsTransitioning(true);
-    setWipeActive(true);
+    setTimelineSlideState({ exitClass, bgSrc: bgSrcRef.current });
     setTimeout(() => {
       setPlaceHaikuIndex(newPlaceIdx);
       setInTimelineMode(true);
       triggerReveal();
-      setWipeActive(false);
-      setTimeout(() => setIsTransitioning(false), 420);
-    }, 340);
+    }, 160);
+    setTimeout(() => setIsTransitioning(false), 330);
   }, [triggerReveal]);
 
   // Core journey navigation — no isTransitioning guard so timeline boundary exits are seamless.
@@ -380,7 +384,8 @@ export default function Home() {
       setInTimelineMode(true);
       return;
     }
-    doTimelineNavigate(index);
+    const dir = index > placeHaikuIndex ? 1 : -1;
+    doTimelineNavigate(index, dir);
   }, [inTimelineMode, placeHaikuIndex, doTimelineNavigate]);
 
   // Navigation within the place timeline.
@@ -391,7 +396,7 @@ export default function Home() {
     if (ni >= placeHaikus.length) { doTimelineReturn(1); return; }
     if (ni < 0) { doTimelineReturn(-1); return; }
     if (isTransitioning) return;
-    doTimelineNavigate(ni);
+    doTimelineNavigate(ni, dir);
   }, [isTransitioning, placeHaikuIndex, placeHaikus.length, doTimelineNavigate, doTimelineReturn]);
 
   // Journey navigation — isTransitioning guard lives here; advanceJourney is the unguarded core.
@@ -550,6 +555,27 @@ export default function Home() {
           <div style={{
             position: 'absolute',
             inset: 0,
+            background: 'linear-gradient(to top, rgba(245,240,232,0.97) 0%, rgba(245,240,232,0.88) 22%, rgba(245,240,232,0.62) 48%, rgba(245,240,232,0.2) 72%, rgba(245,240,232,0.04) 100%)',
+            zIndex: 1,
+          }} />
+        </div>
+      )}
+
+      {/* Timeline vertical slide — exit overlay peels the departing card up or down */}
+      {timelineSlideState && (
+        <div
+          className={timelineSlideState.exitClass}
+          style={{
+            backgroundImage: timelineSlideState.bgSrc ? `url(${timelineSlideState.bgSrc})` : undefined,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundColor: 'var(--parchment)',
+            filter: timelineSlideState.bgSrc ? 'saturate(0.6) brightness(1.12) contrast(0.88)' : undefined,
+          }}
+          onAnimationEnd={() => setTimelineSlideState(null)}
+        >
+          <div style={{
+            position: 'absolute', inset: 0,
             background: 'linear-gradient(to top, rgba(245,240,232,0.97) 0%, rgba(245,240,232,0.88) 22%, rgba(245,240,232,0.62) 48%, rgba(245,240,232,0.2) 72%, rgba(245,240,232,0.04) 100%)',
             zIndex: 1,
           }} />

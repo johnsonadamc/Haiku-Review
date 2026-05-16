@@ -107,7 +107,7 @@ export default function TimelineSlider({
 
   return (
     <div style={{
-      position: 'fixed', right: 0, top: '50%', transform: 'translateY(-50%)',
+      position: 'fixed', right: 0, top: 80,
       zIndex: 30, display: 'flex', flexDirection: 'column', alignItems: 'flex-end',
       pointerEvents: visible ? 'all' : 'none',
       opacity: visible ? 1 : 0, transition: 'opacity 0.4s',
@@ -120,7 +120,7 @@ export default function TimelineSlider({
         onTouchStart={e => { e.stopPropagation(); startDrag(e.touches[0].clientY); }}
         style={{
           position: 'relative',
-          height: 'min(60vh, 480px)',
+          height: 'min(45vh, 360px)',
           width: 80,
           cursor: isDragging ? 'grabbing' : 'ns-resize',
           touchAction: 'none',
@@ -187,21 +187,20 @@ export default function TimelineSlider({
         })}
       </div>
 
-      {/* Return label — fades in after first interaction */}
+      {/* Return symbol — fades in after first interaction, quiet affordance to exit timeline */}
       <button
         onClick={e => { e.stopPropagation(); onReturnToJourney(); }}
         style={{
           background: 'none', border: 'none', cursor: 'pointer',
-          ...labelBase, fontSize: 8, letterSpacing: '0.18em',
-          writingMode: 'vertical-rl',
-          paddingRight: TRACK_RIGHT - 1, marginTop: 10,
-          whiteSpace: 'nowrap', display: 'block',
-          opacity: hasInteracted ? 0.45 : 0,
+          color: 'var(--ink-faint)', fontSize: 10,
+          width: 80, paddingRight: TRACK_RIGHT, textAlign: 'right',
+          marginTop: 12, display: 'block', lineHeight: 1,
+          opacity: hasInteracted ? 0.55 : 0,
           transition: 'opacity 0.4s',
           pointerEvents: hasInteracted ? 'all' : 'none',
         }}
       >
-        ← back to journey
+        ✦
       </button>
     </div>
   );
