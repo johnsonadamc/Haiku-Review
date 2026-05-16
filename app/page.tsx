@@ -863,6 +863,13 @@ export default function Home() {
       {/* Your Haikus — magic-link identity view */}
       <YourHaikus open={yourHaikusOpen} onClose={() => setYourHaikusOpen(false)} />
 
+      {/* DIAGNOSTIC: test timeline-exit-up CSS class */}
+      <button
+        style={{ position: 'fixed', bottom: 60, left: 20, zIndex: 999, background: 'blue', color: 'white', padding: '8px' }}
+        onClick={() => setTimelineSlideState({ exitClass: 'timeline-exit-up', bgSrc: bgSrcRef.current || '' })}
+      >
+        test slide
+      </button>
     </>
   );
 }
