@@ -837,6 +837,12 @@ export default function Home() {
       {/* Your Haikus — magic-link identity view */}
       <YourHaikus open={yourHaikusOpen} onClose={() => setYourHaikusOpen(false)} />
 
+      {/* DIAGNOSTIC: confirm clip-path keyframe loads — red box should shrink to top-left triangle over 2s, NOT rotate */}
+      <div style={{
+        position: 'fixed', top: 20, left: 20, width: 100, height: 100,
+        background: 'red', zIndex: 999,
+        animation: 'curl-forward 2s forwards',
+      }} />
     </>
   );
 }
