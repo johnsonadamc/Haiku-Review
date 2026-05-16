@@ -2,12 +2,16 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getSvgScene, SEED_POSTS, type SeedPost } from '@/lib/seed-data';
+import { createClient as createSupabaseClient } from '@/lib/supabase/client';
 import MapOverlay from '@/components/MapOverlay';
 import SubmitPanel from '@/components/SubmitPanel';
 import YourHaikus from '@/components/YourHaikus';
+import TimelineSlider from '@/components/TimelineSlider';
 
 type HaikuPost = {
   id: string | number;
+  place_id?: string;
+  created_at?: string;
   author?: string | null;
   place?: string;
   city?: string;
@@ -18,7 +22,7 @@ type HaikuPost = {
   photo_url?: string | null;
   held_count?: number;
   scene?: string;
-  places?: { name: string; city: string | null; lat?: number | null; lng?: number | null };
+  places?: { id?: string; name: string; city: string | null; lat?: number | null; lng?: number | null };
 };
 
 type Journey = {
@@ -100,6 +104,12 @@ export default function Home() {
   const nextJourneyRef = useRef<Journey | null>(null);
   const journeyBuildingRef = useRef(false);
 
+  // Timeline slider state
+  const [placeHaikus, setPlaceHaikus] = useState<HaikuPost[]>([]);
+  const [placeHaikuIndex, setPlaceHaikuIndex] = useState(0);
+  const [inTimelineMode, setInTimelineMode] = useState(false);
+  const placeHaikusCacheRef = useRef<{ placeId: string; haikus: HaikuPost[] } | null>(null);
+
   // reveal states
   const [showLtag, setShowLtag] = useState(false);
   const [showL0, setShowL0] = useState(false);
@@ -108,8 +118,7 @@ export default function Home() {
   const [showAuthor, setShowAuthor] = useState(false);
   const [bgVisible, setBgVisible] = useState(false);
 
-  // thread label — shown between haikus in a journey
-  const [threadVisible, setThreadVisible] = useState(false);
+  // thread type/text kept in state for future left-edge hairline rule — not displayed
   const [threadType, setThreadType] = useState('');
   const [threadText, setThreadText] = useState('');
 
@@ -209,12 +218,53 @@ export default function Home() {
     });
   }, [ci, journey, posts, appReady]);
 
-  const currentPost = journey ? journey.seq[ci] : undefined;
+  // Fetch all haikus at the current journey post's place when place changes.
+  // Cache by place_id — only fetches on place change, uses cache for same-place navigation.
+  const journeyPost = journey ? journey.seq[ci] : undefined;
+  useEffect(() => {
+    if (!journeyPost?.place_id) { setPlaceHaikus([]); return; }
+    const placeId = journeyPost.place_id;
+    const postId = journeyPost.id;
+
+    if (placeHaikusCacheRef.current?.placeId === placeId) {
+      // Same place — just sync the active index to the current journey haiku
+      const idx = placeHaikusCacheRef.current.haikus.findIndex(h => String(h.id) === String(postId));
+      if (idx >= 0) setPlaceHaikuIndex(idx);
+      return;
+    }
+
+    // New place — exit timeline mode and fetch fresh
+    setInTimelineMode(false);
+    setPlaceHaikus([]);
+    const client = createSupabaseClient();
+    (async () => {
+      try {
+        const { data } = await client
+          .from('haikus')
+          .select('*, places(name, city)')
+          .eq('place_id', placeId)
+          .order('created_at', { ascending: true });
+        const haikus = (data || []) as HaikuPost[];
+        placeHaikusCacheRef.current = { placeId, haikus };
+        setPlaceHaikus(haikus);
+        const idx = haikus.findIndex(h => String(h.id) === String(postId));
+        setPlaceHaikuIndex(Math.max(0, idx));
+      } catch {
+        setPlaceHaikus([]); setPlaceHaikuIndex(0);
+      }
+    })();
+  }, [journeyPost?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Timeline mode: displayed post comes from the place's full chronological list
+  const currentPost = inTimelineMode
+    ? (placeHaikus[placeHaikuIndex] as HaikuPost | undefined)
+    : journeyPost;
 
   // conn/journeyType kept in state for future left-edge hairline rule — not displayed
   const doNavigate = useCallback((newIdx: number, conn?: string, journeyType?: string) => {
     if (conn) setThreadText(conn);
     if (journeyType) setThreadType(journeyType);
+    setInTimelineMode(false);
     setIsTransitioning(true);
     setWipeActive(true);
     setTimeout(() => {
@@ -224,6 +274,52 @@ export default function Home() {
       setTimeout(() => setIsTransitioning(false), 420);
     }, 340);
   }, [triggerReveal]);
+
+  // Timeline navigation: wipe + show a different haiku from the same place
+  const doTimelineNavigate = useCallback((newPlaceIdx: number) => {
+    setIsTransitioning(true);
+    setWipeActive(true);
+    setTimeout(() => {
+      setPlaceHaikuIndex(newPlaceIdx);
+      setInTimelineMode(true);
+      triggerReveal();
+      setWipeActive(false);
+      setTimeout(() => setIsTransitioning(false), 420);
+    }, 340);
+  }, [triggerReveal]);
+
+  // Exit timeline mode: wipe back to the journey haiku at ci
+  const doTimelineReturn = useCallback(() => {
+    setIsTransitioning(true);
+    setWipeActive(true);
+    setTimeout(() => {
+      setInTimelineMode(false);
+      triggerReveal();
+      setWipeActive(false);
+      setTimeout(() => setIsTransitioning(false), 420);
+    }, 340);
+  }, [triggerReveal]);
+
+  // Called from TimelineSlider onSelect
+  const handleTimelineSelect = useCallback((index: number) => {
+    // Tapping the tick for the current journey haiku — enter timeline mode in place, no animation
+    if (!inTimelineMode && index === placeHaikuIndex) {
+      setInTimelineMode(true);
+      return;
+    }
+    doTimelineNavigate(index);
+  }, [inTimelineMode, placeHaikuIndex, doTimelineNavigate]);
+
+  // Directional navigation within the place timeline (swipe/arrow in timeline mode)
+  const navigateTimeline = useCallback((dir: number) => {
+    if (isTransitioning) return;
+    const ni = placeHaikuIndex + dir;
+    if (ni < 0 || ni >= placeHaikus.length) {
+      doTimelineReturn();
+      return;
+    }
+    doTimelineNavigate(ni);
+  }, [isTransitioning, placeHaikuIndex, placeHaikus.length, doTimelineNavigate, doTimelineReturn]);
 
   const navigate = useCallback((dir: number) => {
     if (isTransitioning || !appReady || !journey) return;
@@ -265,18 +361,22 @@ export default function Home() {
     doNavigate(ni, journey.conn[ni], journey.type);
   }, [isTransitioning, appReady, journey, ci, doNavigate, triggerReveal]);
 
-  // keyboard nav
+  // keyboard nav — routes through timeline when in timeline mode
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') navigate(1);
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') navigate(-1);
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        if (inTimelineMode) navigateTimeline(1); else navigate(1);
+      }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        if (inTimelineMode) navigateTimeline(-1); else navigate(-1);
+      }
       if (e.key === 'Escape') { setMapOpen(false); setSubmitOpen(false); setYourHaikusOpen(false); }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [navigate]);
+  }, [navigate, navigateTimeline, inTimelineMode]);
 
-  // swipe
+  // swipe — routes through timeline when in timeline mode
   useEffect(() => {
     let tx: number | null = null;
     const onStart = (e: TouchEvent) => {
@@ -286,13 +386,16 @@ export default function Home() {
     const onEnd = (e: TouchEvent) => {
       if (tx === null) return;
       const dx = e.changedTouches[0].clientX - tx;
-      if (Math.abs(dx) > 50) navigate(dx < 0 ? 1 : -1);
+      if (Math.abs(dx) > 50) {
+        if (inTimelineMode) navigateTimeline(dx < 0 ? 1 : -1);
+        else navigate(dx < 0 ? 1 : -1);
+      }
       tx = null;
     };
     window.addEventListener('touchstart', onStart, { passive: true });
     window.addEventListener('touchend', onEnd, { passive: true });
     return () => { window.removeEventListener('touchstart', onStart); window.removeEventListener('touchend', onEnd); };
-  }, [navigate, mapOpen]);
+  }, [navigate, navigateTimeline, inTimelineMode, mapOpen]);
 
   // hold mechanic
   const fireRipple = useCallback(() => {
@@ -368,6 +471,12 @@ export default function Home() {
   // Exit button only appears during a place-specific journey (from map), not the global one
   const isPlaceJourney = journey && journey !== globalJourneyRef.current;
 
+  // Slider visible when the current place has 2+ haikus and app is ready
+  const sliderVisible = appReady && placeHaikus.length >= 2;
+
+  // Suppress unused warning — stored for future hairline rule feature
+  void threadType; void threadText;
+
   return (
     <>
       {/* Wipe transition */}
@@ -420,9 +529,9 @@ export default function Home() {
         }}>+ Submit</button>
       </div>
 
-      {/* Collection info — fades in once ready */}
+      {/* Collection info — moved to left side to clear the right-edge timeline slider */}
       <div className="collection-info" style={{
-        position: 'fixed', top: '50%', right: 32, transform: 'translateY(-50%)', zIndex: 10,
+        position: 'fixed', top: '50%', left: 32, transform: 'translateY(-50%)', zIndex: 10,
         writingMode: 'vertical-rl', fontFamily: "'Shippori Mincho', serif", fontSize: 9,
         letterSpacing: '0.25em', color: 'var(--ink-faint)',
         opacity: appReady ? 0.5 : 0, transition: 'opacity 0.6s',
@@ -445,6 +554,15 @@ export default function Home() {
       <div style={{ position: 'fixed', inset: 0, zIndex: 12, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div ref={rippleRef} className="hold-ripple" />
       </div>
+
+      {/* Timeline slider — right edge, fades in when place has 2+ haikus */}
+      <TimelineSlider
+        placeHaikus={placeHaikus}
+        activeIndex={placeHaikuIndex}
+        onSelect={handleTimelineSelect}
+        onReturnToJourney={doTimelineReturn}
+        visible={sliderVisible}
+      />
 
       {/* Haiku stage — hold mechanic targets this whole div */}
       <div
@@ -522,7 +640,7 @@ export default function Home() {
           position: 'fixed', left: '50%', bottom: 30, transform: 'translateX(-50%)',
           zIndex: 20, display: 'flex', alignItems: 'center', gap: 4,
         }}>
-          <button className="nb" onClick={() => navigate(-1)} style={{
+          <button className="nb" onClick={() => inTimelineMode ? navigateTimeline(-1) : navigate(-1)} style={{
             background: 'none', border: 'none', cursor: 'pointer', padding: '8px 16px',
             color: 'var(--ink-soft)', opacity: 0.38,
             display: 'flex', alignItems: 'center', gap: 7,
@@ -533,7 +651,7 @@ export default function Home() {
             prev
           </button>
           <div style={{ width: 1, height: 14, background: 'var(--gold)', opacity: 0.3 }} />
-          <button className="nb" onClick={() => navigate(1)} style={{
+          <button className="nb" onClick={() => inTimelineMode ? navigateTimeline(1) : navigate(1)} style={{
             background: 'none', border: 'none', cursor: 'pointer', padding: '8px 16px',
             color: 'var(--ink-soft)', opacity: 0.38,
             display: 'flex', alignItems: 'center', gap: 7,
@@ -553,7 +671,10 @@ export default function Home() {
           fontFamily: "'Shippori Mincho', serif", fontSize: 9, color: 'var(--ink-faint)',
           opacity: 0.5, zIndex: 20, whiteSpace: 'nowrap', letterSpacing: '0.28em',
         }}>
-          {journey ? `${ci + 1} of ${journey.seq.length} · ${journey.type}` : ''}
+          {inTimelineMode
+            ? `${placeHaikuIndex + 1} of ${placeHaikus.length} at this place`
+            : journey ? `${ci + 1} of ${journey.seq.length} · ${journey.type}` : ''
+          }
         </div>
       )}
 
@@ -596,6 +717,7 @@ export default function Home() {
         onSubmitted={(newPost, prevHaiku) => {
           setPosts(prev => [newPost, ...prev]);
           setSubmitOpen(false);
+          setInTimelineMode(false);
           setCi(0);
           const placeName = getPlace(newPost);
           const localPrev = prevHaiku || posts.find(p => getPlace(p) === placeName && p.id !== newPost.id);
