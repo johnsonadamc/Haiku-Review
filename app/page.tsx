@@ -398,9 +398,9 @@ export default function Home() {
       } else if (e.key === 'ArrowLeft') {
         if (!inTimelineMode || atMostRecent) navigate(-1);
       } else if (e.key === 'ArrowUp') {
-        if (placeHaikus.length > 1) navigateTimeline(1);
-      } else if (e.key === 'ArrowDown') {
         if (placeHaikus.length > 1) navigateTimeline(-1);
+      } else if (e.key === 'ArrowDown') {
+        if (placeHaikus.length > 1) navigateTimeline(1);
       } else if (e.key === 'Escape') {
         setMapOpen(false); setSubmitOpen(false); setYourHaikusOpen(false);
       }
@@ -433,8 +433,8 @@ export default function Home() {
         navigate(dx < 0 ? 1 : -1);
       } else {
         if (Math.abs(dy) < 30 || placeHaikus.length < 2) return;
-        // dy > 0 = finger moved down = going back in time (-1); dy < 0 = up = forward (+1)
-        navigateTimeline(dy > 0 ? -1 : 1);
+        // dy < 0 = finger moved up = back in time (-1); dy > 0 = down = forward in time (+1)
+        navigateTimeline(dy < 0 ? -1 : 1);
       }
     };
     window.addEventListener('touchstart', onStart, { passive: true });
