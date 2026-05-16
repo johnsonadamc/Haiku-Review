@@ -297,8 +297,8 @@ export default function Home() {
     setTimeout(() => {
       setCi(newIdx);
       triggerReveal();
-    }, 190);
-    setTimeout(() => setIsTransitioning(false), 400);
+    }, 210);
+    setTimeout(() => setIsTransitioning(false), 430);
   }, [triggerReveal]);
 
   // Wipe + show a different haiku from the same place (enters/stays in timeline mode).
@@ -532,29 +532,26 @@ export default function Home() {
         transition: 'opacity 0.38s ease',
       }} />
 
-      {/* CSS 3D page curl — fires on journey navigation, clears when animation ends */}
+      {/* Clip-path diagonal peel — fires on journey navigation, clears when animation ends */}
       {curlState && (
         <div
           className={curlState.direction === 'forward' ? 'page-curl-exit-forward' : 'page-curl-exit-backward'}
-          style={{ backgroundColor: 'var(--parchment)', overflow: 'hidden' }}
+          style={{
+            backgroundImage: curlState.bgSrc ? `url(${curlState.bgSrc})` : undefined,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundColor: 'var(--parchment)',
+            filter: curlState.bgSrc
+              ? 'saturate(0.6) brightness(1.12) contrast(0.88)'
+              : undefined,
+          }}
           onAnimationEnd={() => setCurlState(null)}
         >
-          {/* Use img (not CSS backgroundImage) — renders SVG data URIs and photo URLs identically to the haiku stage */}
-          {curlState.bgSrc && (
-            <img
-              src={curlState.bgSrc}
-              alt=""
-              style={{
-                position: 'absolute', inset: 0, width: '100%', height: '100%',
-                objectFit: 'cover',
-                filter: 'saturate(0.6) brightness(1.12) contrast(0.88)',
-              }}
-            />
-          )}
-          {/* Lighter wash than the haiku stage so the photo shows through — makes the curl visually distinct from the parchment background */}
           <div style={{
-            position: 'absolute', inset: 0,
-            background: 'linear-gradient(to top, rgba(245,240,232,0.82) 0%, rgba(245,240,232,0.60) 30%, rgba(245,240,232,0.28) 60%, rgba(245,240,232,0.06) 100%)',
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(to top, rgba(245,240,232,0.97) 0%, rgba(245,240,232,0.88) 22%, rgba(245,240,232,0.62) 48%, rgba(245,240,232,0.2) 72%, rgba(245,240,232,0.04) 100%)',
+            zIndex: 1,
           }} />
         </div>
       )}
