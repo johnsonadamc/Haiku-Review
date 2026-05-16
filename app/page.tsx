@@ -536,17 +536,25 @@ export default function Home() {
       {curlState && (
         <div
           className={curlState.direction === 'forward' ? 'page-curl-exit-forward' : 'page-curl-exit-backward'}
-          style={{
-            backgroundImage: curlState.bgSrc ? `url("${curlState.bgSrc}")` : undefined,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundColor: 'var(--parchment)',
-          }}
+          style={{ backgroundColor: 'var(--parchment)', overflow: 'hidden' }}
           onAnimationEnd={() => setCurlState(null)}
         >
+          {/* Use img (not CSS backgroundImage) — renders SVG data URIs and photo URLs identically to the haiku stage */}
+          {curlState.bgSrc && (
+            <img
+              src={curlState.bgSrc}
+              alt=""
+              style={{
+                position: 'absolute', inset: 0, width: '100%', height: '100%',
+                objectFit: 'cover',
+                filter: 'saturate(0.6) brightness(1.12) contrast(0.88)',
+              }}
+            />
+          )}
+          {/* Lighter wash than the haiku stage so the photo shows through — makes the curl visually distinct from the parchment background */}
           <div style={{
             position: 'absolute', inset: 0,
-            background: 'linear-gradient(to top, rgba(245,240,232,0.97) 0%, rgba(245,240,232,0.88) 22%, rgba(245,240,232,0.62) 48%, rgba(245,240,232,0.2) 72%, rgba(245,240,232,0.04) 100%)',
+            background: 'linear-gradient(to top, rgba(245,240,232,0.82) 0%, rgba(245,240,232,0.60) 30%, rgba(245,240,232,0.28) 60%, rgba(245,240,232,0.06) 100%)',
           }} />
         </div>
       )}
@@ -831,6 +839,7 @@ export default function Home() {
 
       {/* Your Haikus — magic-link identity view */}
       <YourHaikus open={yourHaikusOpen} onClose={() => setYourHaikusOpen(false)} />
+
     </>
   );
 }
