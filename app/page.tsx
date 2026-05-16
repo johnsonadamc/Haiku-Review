@@ -7,6 +7,7 @@ import MapOverlay from '@/components/MapOverlay';
 import SubmitPanel from '@/components/SubmitPanel';
 import YourHaikus from '@/components/YourHaikus';
 import TimelineSlider from '@/components/TimelineSlider';
+import PageCurl, { type PageCurlHandle } from '@/components/PageCurl';
 
 type HaikuPost = {
   id: string | number;
@@ -120,6 +121,8 @@ export default function Home() {
   const journeyBuildingRef = useRef(false);
   // Mirrors ci — lets timeline callbacks read the current journey index without stale closures
   const journeyIndexRef = useRef(0);
+  // Page curl canvas — used for journey navigation transitions
+  const curlRef = useRef<PageCurlHandle>(null);
 
   // Timeline slider state
   const [placeHaikus, setPlaceHaikus] = useState<HaikuPost[]>([]);
@@ -282,21 +285,33 @@ export default function Home() {
     ? (placeHaikus[placeHaikuIndex] as HaikuPost | undefined)
     : journeyPost;
 
-  // Wipe + reveal a new journey haiku. Always clears timeline mode.
+  // Curl + reveal a new journey haiku. Always clears timeline mode.
   // Stored conn/journeyType are for a future left-edge hairline rule — not displayed.
+  // curlRef is intentionally omitted from deps — refs are stable.
   const doNavigate = useCallback((newIdx: number, conn?: string, journeyType?: string) => {
     if (conn) setThreadText(conn);
     if (journeyType) setThreadType(journeyType);
     setInTimelineMode(false);
     setIsTransitioning(true);
-    setWipeActive(true);
-    setTimeout(() => {
-      setCi(newIdx);
-      triggerReveal();
-      setWipeActive(false);
-      setTimeout(() => setIsTransitioning(false), 420);
-    }, 340);
-  }, [triggerReveal]);
+    if (curlRef.current) {
+      curlRef.current.triggerCurl(() => {
+        // Fires at t=0.6 (~300ms) — swap content while curl still running
+        setCi(newIdx);
+        triggerReveal();
+        // isTransitioning clears at curl end (~200ms later = ~500ms total)
+        setTimeout(() => setIsTransitioning(false), 200);
+      });
+    } else {
+      // Canvas unavailable — fall back to wipe
+      setWipeActive(true);
+      setTimeout(() => {
+        setCi(newIdx);
+        triggerReveal();
+        setWipeActive(false);
+        setTimeout(() => setIsTransitioning(false), 420);
+      }, 340);
+    }
+  }, [triggerReveal]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Wipe + show a different haiku from the same place (enters/stays in timeline mode).
   const doTimelineNavigate = useCallback((newPlaceIdx: number) => {
@@ -520,12 +535,15 @@ export default function Home() {
 
   return (
     <>
-      {/* Wipe transition */}
+      {/* Wipe transition — used for timeline navigation and edge cases */}
       <div style={{
-        position: 'fixed', inset: 0, background: 'var(--parchment-2)', zIndex: 50,
+        position: 'fixed', inset: 0, background: 'var(--parchment-2)', zIndex: 49,
         opacity: wipeActive ? 1 : 0, pointerEvents: wipeActive ? 'all' : 'none',
         transition: 'opacity 0.38s ease',
       }} />
+
+      {/* Page curl — used for journey navigation */}
+      <PageCurl ref={curlRef} />
 
       {/* Atmospheric open — gold rule draws left to right (800ms), then fades (400ms) */}
       {!appReady && (
@@ -705,17 +723,14 @@ export default function Home() {
         </div>
       )}
 
-      {/* Position counter */}
-      {appReady && (
+      {/* Timeline position — only shown in timeline mode */}
+      {appReady && inTimelineMode && (
         <div style={{
           position: 'fixed', left: '50%', bottom: 16, transform: 'translateX(-50%)',
           fontFamily: "'Shippori Mincho', serif", fontSize: 9, color: 'var(--ink-faint)',
           opacity: 0.5, zIndex: 20, whiteSpace: 'nowrap', letterSpacing: '0.28em',
         }}>
-          {inTimelineMode
-            ? `${placeHaikuIndex + 1} of ${placeHaikus.length} at this place`
-            : journey ? `${ci + 1} of ${journey.seq.length} · ${journey.type}` : ''
-          }
+          {`${placeHaikuIndex + 1} of ${placeHaikus.length} at this place`}
         </div>
       )}
 
