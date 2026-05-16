@@ -290,6 +290,7 @@ export default function Home() {
 
   // Exit timeline mode: wipe back to the journey haiku at ci
   const doTimelineReturn = useCallback(() => {
+    clearRevealTimers();
     setIsTransitioning(true);
     setWipeActive(true);
     setTimeout(() => {
@@ -298,7 +299,7 @@ export default function Home() {
       setWipeActive(false);
       setTimeout(() => setIsTransitioning(false), 420);
     }, 340);
-  }, [triggerReveal]);
+  }, [triggerReveal, clearRevealTimers]);
 
   // Called from TimelineSlider onSelect
   const handleTimelineSelect = useCallback((index: number) => {
@@ -312,12 +313,12 @@ export default function Home() {
 
   // Directional navigation within the place timeline (swipe/arrow in timeline mode)
   const navigateTimeline = useCallback((dir: number) => {
-    if (isTransitioning) return;
     const ni = placeHaikuIndex + dir;
     if (ni < 0 || ni >= placeHaikus.length) {
-      doTimelineReturn();
+      doTimelineReturn(); // boundary — always allowed, no isTransitioning guard
       return;
     }
+    if (isTransitioning) return;
     doTimelineNavigate(ni);
   }, [isTransitioning, placeHaikuIndex, placeHaikus.length, doTimelineNavigate, doTimelineReturn]);
 
