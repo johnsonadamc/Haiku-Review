@@ -55,17 +55,50 @@ function getBg(p: HaikuPost): string {
 
 // Suppress unused warning for SeedPost — it's used via type import for SEED_POSTS
 type _SeedPostRef = SeedPost;
+// Suppress unused warning for getCity — used indirectly
+type _getCityRef = typeof getCity;
+
+const BRIDGES = ['the thread continues', 'another voice, same sky', 'silence answered', 'the mood deepens', 'worlds apart, same ache'];
+
+async function buildJourneyFromPool(haikus: HaikuPost[], placeName?: string): Promise<Journey> {
+  try {
+    const res = await fetch('/api/journey', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ posts: haikus, placeName: placeName || '' }),
+    });
+    const data = await res.json();
+    const seq = (data.seq || [])
+      .map((id: string | number) => haikus.find((p: HaikuPost) => String(p.id) === String(id)))
+      .filter(Boolean) as HaikuPost[];
+    if (seq.length === 0) throw new Error('empty');
+    return { seq, conn: data.conn || [], type: data.type };
+  } catch {
+    const shuffled = [...haikus].sort(() => Math.random() - 0.5).slice(0, Math.min(6, haikus.length));
+    return {
+      seq: shuffled,
+      conn: shuffled.map((_, i) => i === 0 ? '' : BRIDGES[i - 1] || 'the thread continues'),
+      type: 'emotional resonance',
+    };
+  }
+}
 
 export default function Home() {
   const [posts, setPosts] = useState<HaikuPost[]>([]);
   const [ci, setCi] = useState(0);
+  const [appReady, setAppReady] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [wipeActive, setWipeActive] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
   const [yourHaikusOpen, setYourHaikusOpen] = useState(false);
   const [journey, setJourney] = useState<Journey | null>(null);
-  const [journeyLoading, setJourneyLoading] = useState(false);
+
+  // The current global (full-pool) journey — restored when exiting a place journey
+  const globalJourneyRef = useRef<Journey | null>(null);
+  // Pre-built next journey, ready to load seamlessly at end of current
+  const nextJourneyRef = useRef<Journey | null>(null);
+  const journeyBuildingRef = useRef(false);
 
   // reveal states
   const [showLtag, setShowLtag] = useState(false);
@@ -75,7 +108,7 @@ export default function Home() {
   const [showAuthor, setShowAuthor] = useState(false);
   const [bgVisible, setBgVisible] = useState(false);
 
-  // thread label
+  // thread label — shown between haikus in a journey
   const [threadVisible, setThreadVisible] = useState(false);
   const [threadType, setThreadType] = useState('');
   const [threadText, setThreadText] = useState('');
@@ -96,25 +129,6 @@ export default function Home() {
   const [psmVisible, setPsmVisible] = useState(false);
 
   const revealTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
-
-  useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem('hr_held') || '[]');
-    setHeldSet(new Set(stored));
-    fetch('/api/haikus')
-      .then(r => r.json())
-      .then(d => { if (d.haikus?.length) setPosts(d.haikus); })
-      .catch(() => setPosts(SEED_POSTS));
-
-    // Open "your haikus" automatically when returning via magic link
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('haikus') === 'mine') {
-        setYourHaikusOpen(true);
-        // Clean the URL without reloading
-        window.history.replaceState({}, '', window.location.pathname);
-      }
-    }
-  }, []);
 
   const showToast = useCallback((msg: string) => {
     setToastMsg(msg);
@@ -146,16 +160,65 @@ export default function Home() {
     t(1540, () => setShowAuthor(true));
   }, [clearRevealTimers]);
 
-  const currentList = journey ? journey.seq : posts;
-  const currentPost = currentList[ci];
+  // Atmospheric open: fetch haikus + build initial journey, then reveal after rule animation
+  useEffect(() => {
+    const stored = JSON.parse(localStorage.getItem('hr_held') || '[]');
+    setHeldSet(new Set(stored));
 
-  const doNavigate = useCallback((newIdx: number, _post: HaikuPost, conn?: string) => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('haikus') === 'mine') {
+        setYourHaikusOpen(true);
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    }
+
+    // Rule draws for 800ms then fades 400ms — hold reveal until both data and animation are done
+    const ruleReady = new Promise<void>(resolve => setTimeout(resolve, 1200));
+
+    const dataReady: Promise<Journey> = fetch('/api/haikus')
+      .then(r => r.json())
+      .then(async (d) => {
+        const haikus: HaikuPost[] = d.haikus?.length ? d.haikus : SEED_POSTS;
+        setPosts(haikus);
+        return buildJourneyFromPool(haikus);
+      })
+      .catch(async () => {
+        setPosts(SEED_POSTS);
+        return buildJourneyFromPool(SEED_POSTS);
+      });
+
+    Promise.all([dataReady, ruleReady]).then(([j]) => {
+      globalJourneyRef.current = j;
+      setJourney(j);
+      setCi(0);
+      setAppReady(true);
+      triggerReveal();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Pre-build the next journey when reader reaches the last haiku in the current sequence
+  useEffect(() => {
+    if (!journey || !appReady || journeyBuildingRef.current || nextJourneyRef.current) return;
+    if (ci < journey.seq.length - 1) return;
+    journeyBuildingRef.current = true;
+    buildJourneyFromPool(posts).then(j => {
+      nextJourneyRef.current = j;
+      journeyBuildingRef.current = false;
+    });
+  }, [ci, journey, posts, appReady]);
+
+  const currentPost = journey ? journey.seq[ci] : undefined;
+
+  // conn: the bridge phrase for this step; journeyType: for the thread label display
+  const doNavigate = useCallback((newIdx: number, conn?: string, journeyType?: string) => {
     setIsTransitioning(true);
     setWipeActive(true);
     setTimeout(() => {
       setCi(newIdx);
       if (conn && conn.length > 0) {
-        setThreadType(journey?.type || '');
+        setThreadType(journeyType || '');
         setThreadText(conn);
         setThreadVisible(true);
         setTimeout(() => {
@@ -168,34 +231,47 @@ export default function Home() {
       setWipeActive(false);
       setTimeout(() => setIsTransitioning(false), 420);
     }, 340);
-  }, [journey, triggerReveal]);
+  }, [triggerReveal]);
 
   const navigate = useCallback((dir: number) => {
-    if (isTransitioning) return;
-    const list = journey ? journey.seq : posts;
-    if (!list.length) return;
-    if (journey) {
-      const ni = ci + dir;
-      if (ni < 0 || ni >= journey.seq.length) {
-        if (ni >= journey.seq.length) showToast('end of journey');
-        return;
+    if (isTransitioning || !appReady || !journey) return;
+    const ni = ci + dir;
+
+    if (ni < 0) return;
+
+    if (ni >= journey.seq.length) {
+      // End of sequence — load the pre-built continuation seamlessly
+      if (nextJourneyRef.current) {
+        const newJ = nextJourneyRef.current;
+        nextJourneyRef.current = null;
+        globalJourneyRef.current = newJ;
+        setJourney(newJ);
+        doNavigate(0, '', newJ.type);
+      } else {
+        // Continuation still building — show wipe and poll until ready
+        setIsTransitioning(true);
+        setWipeActive(true);
+        const poll = () => {
+          if (nextJourneyRef.current) {
+            const newJ = nextJourneyRef.current;
+            nextJourneyRef.current = null;
+            globalJourneyRef.current = newJ;
+            setJourney(newJ);
+            setCi(0);
+            setWipeActive(false);
+            triggerReveal();
+            setTimeout(() => setIsTransitioning(false), 420);
+          } else {
+            setTimeout(poll, 100);
+          }
+        };
+        setTimeout(poll, 340);
       }
-      doNavigate(ni, journey.seq[ni], journey.conn[ni]);
-    } else {
-      const ni = ((ci + dir) % list.length + list.length) % list.length;
-      doNavigate(ni, list[ni]);
+      return;
     }
-  }, [isTransitioning, journey, posts, ci, doNavigate, showToast]);
 
-  useEffect(() => {
-    if (posts.length > 0 && !journey) triggerReveal();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [posts]);
-
-  useEffect(() => {
-    if (journey) triggerReveal();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [journey]);
+    doNavigate(ni, journey.conn[ni], journey.type);
+  }, [isTransitioning, appReady, journey, ci, doNavigate, triggerReveal]);
 
   // keyboard nav
   useEffect(() => {
@@ -261,40 +337,31 @@ export default function Home() {
     if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
   }, []);
 
+  // Map dot click: build a place-seeded journey; exit restores the global one
   const handlePlaceClick = useCallback(async (placeName: string) => {
     setMapOpen(false);
-    setJourneyLoading(true);
+    setIsTransitioning(true);
+    setWipeActive(true);
     try {
-      const res = await fetch('/api/journey', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ posts, placeName }),
-      });
-      const data = await res.json();
-      const seq = (data.seq || [])
-        .map((id: string | number) => posts.find((p: HaikuPost) => String(p.id) === String(id)))
-        .filter(Boolean) as HaikuPost[];
-      if (seq.length === 0) throw new Error('empty');
-      setJourney({ seq, conn: data.conn || [], type: data.type });
+      const j = await buildJourneyFromPool(posts, placeName);
+      setJourney(j);
       setCi(0);
+      setWipeActive(false);
+      setTimeout(() => setIsTransitioning(false), 420);
+      triggerReveal();
     } catch {
-      const shuffled = [...posts].sort(() => Math.random() - 0.5).slice(0, Math.min(6, posts.length));
-      const bridges = ['the thread continues', 'another voice, same sky', 'silence answered', 'the mood deepens', 'worlds apart, same ache'];
-      setJourney({
-        seq: shuffled,
-        conn: shuffled.map((_, i) => i === 0 ? '' : bridges[i - 1] || 'the thread continues'),
-        type: 'emotional resonance',
-      });
-      setCi(0);
-    } finally {
-      setJourneyLoading(false);
+      setWipeActive(false);
+      setTimeout(() => setIsTransitioning(false), 420);
     }
-  }, [posts]);
+  }, [posts, triggerReveal]);
 
   const exitJourney = useCallback(() => {
-    setJourney(null);
-    setCi(0);
-    triggerReveal();
+    const global = globalJourneyRef.current;
+    if (global) {
+      setJourney(global);
+      setCi(0);
+      triggerReveal();
+    }
   }, [triggerReveal]);
 
   const placeCount = new Set(posts.map((p: HaikuPost) => getPlace(p)).filter(Boolean)).size;
@@ -306,6 +373,9 @@ export default function Home() {
 
   const journeyProgress = journey ? ((ci + 1) / journey.seq.length * 100) : 0;
 
+  // Exit button only appears during a place-specific journey (from map), not the global one
+  const isPlaceJourney = journey && journey !== globalJourneyRef.current;
+
   return (
     <>
       {/* Wipe transition */}
@@ -314,6 +384,14 @@ export default function Home() {
         opacity: wipeActive ? 1 : 0, pointerEvents: wipeActive ? 'all' : 'none',
         transition: 'opacity 0.38s ease',
       }} />
+
+      {/* Atmospheric open — gold rule draws left to right (800ms), then fades (400ms) */}
+      {!appReady && (
+        <div className="open-rule" style={{
+          position: 'fixed', top: '50%', left: 0, zIndex: 300,
+          height: 1, background: '#8a6a2a', pointerEvents: 'none',
+        }} />
+      )}
 
       {/* Stage */}
       <div style={{ position: 'fixed', inset: 0, zIndex: 0, overflow: 'hidden' }}>
@@ -350,26 +428,28 @@ export default function Home() {
         }}>+ Submit</button>
       </div>
 
-      {/* Collection info */}
+      {/* Collection info — fades in once ready */}
       <div className="collection-info" style={{
         position: 'fixed', top: '50%', right: 32, transform: 'translateY(-50%)', zIndex: 10,
         writingMode: 'vertical-rl', fontFamily: "'Shippori Mincho', serif", fontSize: 9,
-        letterSpacing: '0.25em', color: 'var(--ink-faint)', opacity: 0.5, textTransform: 'uppercase',
+        letterSpacing: '0.25em', color: 'var(--ink-faint)',
+        opacity: appReady ? 0.5 : 0, transition: 'opacity 0.6s',
+        textTransform: 'uppercase',
         display: 'flex', alignItems: 'center', gap: 10,
       }}>
         <div style={{ width: 1, height: 28, background: 'var(--gold)', opacity: 0.4, flexShrink: 0 }} />
         {posts.length} haikus · {placeCount} places
       </div>
 
-      {/* Journey progress bar — always in DOM, fades in/out */}
+      {/* Journey progress bar — always visible once ready */}
       <div style={{
         position: 'fixed', top: 0, left: 0, zIndex: 200, height: 2,
-        background: 'var(--gold)', opacity: journey ? 0.45 : 0,
+        background: 'var(--gold)', opacity: appReady ? 0.45 : 0,
         width: journey ? `${journeyProgress}%` : '0%',
         transition: 'width 0.6s ease, opacity 0.4s', pointerEvents: 'none',
       }} />
 
-      {/* Thread label */}
+      {/* Thread label — bridge phrase between haikus */}
       <div style={{
         position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
         zIndex: 15, pointerEvents: 'none', textAlign: 'center',
@@ -383,18 +463,6 @@ export default function Home() {
       <div style={{ position: 'fixed', inset: 0, zIndex: 12, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div ref={rippleRef} className="hold-ripple" />
       </div>
-
-      {/* Journey loading */}
-      {journeyLoading && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 250, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(245,240,232,0.88)', backdropFilter: 'blur(12px)',
-          flexDirection: 'column', gap: 16,
-        }}>
-          <span style={{ fontFamily: "'Shippori Mincho', serif", fontSize: 11, letterSpacing: '0.28em', textTransform: 'uppercase', color: 'var(--ink-soft)', opacity: 0.7 }}>Finding connections</span>
-          <div className="jlp-bar" />
-        </div>
-      )}
 
       {/* Haiku stage — hold mechanic targets this whole div */}
       <div
@@ -466,48 +534,49 @@ export default function Home() {
         }}>{authorText}</div>
       </div>
 
-      {/* Nav */}
-      <div style={{
-        position: 'fixed', left: '50%', bottom: 30, transform: 'translateX(-50%)',
-        zIndex: 20, display: 'flex', alignItems: 'center', gap: 4,
-      }}>
-        <button className="nb" onClick={() => navigate(-1)} style={{
-          background: 'none', border: 'none', cursor: 'pointer', padding: '8px 16px',
-          color: 'var(--ink-soft)', opacity: 0.38,
-          display: 'flex', alignItems: 'center', gap: 7,
-          fontFamily: "'Shippori Mincho', serif", fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase',
-          minHeight: 44,
+      {/* Nav — hidden until app is ready */}
+      {appReady && (
+        <div style={{
+          position: 'fixed', left: '50%', bottom: 30, transform: 'translateX(-50%)',
+          zIndex: 20, display: 'flex', alignItems: 'center', gap: 4,
         }}>
-          <svg className="nb-al" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-          prev
-        </button>
-        <div style={{ width: 1, height: 14, background: 'var(--gold)', opacity: 0.3 }} />
-        <button className="nb" onClick={() => navigate(1)} style={{
-          background: 'none', border: 'none', cursor: 'pointer', padding: '8px 16px',
-          color: 'var(--ink-soft)', opacity: 0.38,
-          display: 'flex', alignItems: 'center', gap: 7,
-          fontFamily: "'Shippori Mincho', serif", fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase',
-          minHeight: 44,
-        }}>
-          next
-          <svg className="nb-ar" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        </button>
-      </div>
+          <button className="nb" onClick={() => navigate(-1)} style={{
+            background: 'none', border: 'none', cursor: 'pointer', padding: '8px 16px',
+            color: 'var(--ink-soft)', opacity: 0.38,
+            display: 'flex', alignItems: 'center', gap: 7,
+            fontFamily: "'Shippori Mincho', serif", fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase',
+            minHeight: 44,
+          }}>
+            <svg className="nb-al" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+            prev
+          </button>
+          <div style={{ width: 1, height: 14, background: 'var(--gold)', opacity: 0.3 }} />
+          <button className="nb" onClick={() => navigate(1)} style={{
+            background: 'none', border: 'none', cursor: 'pointer', padding: '8px 16px',
+            color: 'var(--ink-soft)', opacity: 0.38,
+            display: 'flex', alignItems: 'center', gap: 7,
+            fontFamily: "'Shippori Mincho', serif", fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase',
+            minHeight: 44,
+          }}>
+            next
+            <svg className="nb-ar" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+      )}
 
       {/* Position counter */}
-      <div style={{
-        position: 'fixed', left: '50%', bottom: 16, transform: 'translateX(-50%)',
-        fontFamily: "'Shippori Mincho', serif", fontSize: 9, color: 'var(--ink-faint)',
-        opacity: 0.5, zIndex: 20, whiteSpace: 'nowrap', letterSpacing: '0.28em',
-      }}>
-        {journey
-          ? `${ci + 1} of ${journey.seq.length} · ${journey.type}`
-          : `${ci + 1} — ${posts.length}`
-        }
-      </div>
+      {appReady && (
+        <div style={{
+          position: 'fixed', left: '50%', bottom: 16, transform: 'translateX(-50%)',
+          fontFamily: "'Shippori Mincho', serif", fontSize: 9, color: 'var(--ink-faint)',
+          opacity: 0.5, zIndex: 20, whiteSpace: 'nowrap', letterSpacing: '0.28em',
+        }}>
+          {journey ? `${ci + 1} of ${journey.seq.length} · ${journey.type}` : ''}
+        </div>
+      )}
 
-      {/* Journey exit button */}
-      {journey && (
+      {/* Journey exit button — only shown during a place-specific journey from map */}
+      {appReady && isPlaceJourney && (
         <button className="jexit-btn" onClick={exitJourney} style={{
           position: 'fixed', left: 36, bottom: 30, zIndex: 20,
           background: 'none', border: 'none', padding: '8px 0', cursor: 'pointer',
@@ -545,7 +614,7 @@ export default function Home() {
         onSubmitted={(newPost, prevHaiku) => {
           setPosts(prev => [newPost, ...prev]);
           setSubmitOpen(false);
-          setJourney(null);
+          setCi(0);
           const placeName = getPlace(newPost);
           const localPrev = prevHaiku || posts.find(p => getPlace(p) === placeName && p.id !== newPost.id);
           if (localPrev) {
@@ -558,13 +627,11 @@ export default function Home() {
               setPsmVisible(false);
               setTimeout(() => {
                 setPsm(null);
-                setCi(0);
                 triggerReveal();
               }, 500);
             }, 3500);
           } else {
             showToast('published');
-            setCi(0);
             triggerReveal();
           }
         }}
