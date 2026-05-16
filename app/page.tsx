@@ -211,23 +211,15 @@ export default function Home() {
 
   const currentPost = journey ? journey.seq[ci] : undefined;
 
-  // conn: the bridge phrase for this step; journeyType: for the thread label display
+  // conn/journeyType kept in state for future left-edge hairline rule — not displayed
   const doNavigate = useCallback((newIdx: number, conn?: string, journeyType?: string) => {
+    if (conn) setThreadText(conn);
+    if (journeyType) setThreadType(journeyType);
     setIsTransitioning(true);
     setWipeActive(true);
     setTimeout(() => {
       setCi(newIdx);
-      if (conn && conn.length > 0) {
-        setThreadType(journeyType || '');
-        setThreadText(conn);
-        setThreadVisible(true);
-        setTimeout(() => {
-          setThreadVisible(false);
-          triggerReveal();
-        }, 2000);
-      } else {
-        triggerReveal();
-      }
+      triggerReveal();
       setWipeActive(false);
       setTimeout(() => setIsTransitioning(false), 420);
     }, 340);
@@ -448,16 +440,6 @@ export default function Home() {
         width: journey ? `${journeyProgress}%` : '0%',
         transition: 'width 0.6s ease, opacity 0.4s', pointerEvents: 'none',
       }} />
-
-      {/* Thread label — bridge phrase between haikus */}
-      <div style={{
-        position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-        zIndex: 15, pointerEvents: 'none', textAlign: 'center',
-        opacity: threadVisible ? 1 : 0, transition: 'opacity 0.6s',
-      }}>
-        <span style={{ display: 'block', fontFamily: "'Shippori Mincho', serif", fontSize: 9, letterSpacing: '0.3em', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: 8, opacity: 0.9 }}>{threadType}</span>
-        <span style={{ display: 'block', fontFamily: "'Shippori Mincho', serif", fontSize: 12, letterSpacing: '0.18em', color: 'var(--ink-soft)', textTransform: 'uppercase' }}>{threadText}</span>
-      </div>
 
       {/* Hold ring — ref-based animation for reliable restart */}
       <div style={{ position: 'fixed', inset: 0, zIndex: 12, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
