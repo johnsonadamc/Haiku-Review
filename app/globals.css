@@ -215,10 +215,12 @@ body::after {
 .timeline-exit-up {
   position: fixed; inset: 0; z-index: 40;
   animation: slide-exit-up 320ms cubic-bezier(0.4,0,0.2,1) forwards;
+  box-shadow: 0 -8px 32px rgba(30,26,20,0.18);
 }
 .timeline-exit-down {
   position: fixed; inset: 0; z-index: 40;
   animation: slide-exit-down 320ms cubic-bezier(0.4,0,0.2,1) forwards;
+  box-shadow: 0 8px 32px rgba(30,26,20,0.18);
 }
 .timeline-enter-from-bottom {
   position: fixed; inset: 0; z-index: 39;

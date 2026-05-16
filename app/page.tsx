@@ -122,8 +122,8 @@ export default function Home() {
   const journeyIndexRef = useRef(0);
   // CSS 3D curl state — set on navigate, cleared by onAnimationEnd
   const [curlState, setCurlState] = useState<{ direction: 'forward' | 'backward'; bgSrc: string } | null>(null);
-  // Timeline vertical slide state — exit overlay, entering card is the haiku stage itself
-  const [timelineSlideState, setTimelineSlideState] = useState<{ exitClass: string; bgSrc: string } | null>(null);
+  // Timeline vertical slide state — exit overlay slides out, enter class applied to haiku stage slides in
+  const [timelineSlideState, setTimelineSlideState] = useState<{ exitClass: string; enterClass: string; bgSrc: string } | null>(null);
   // Ref so doNavigate/doTimelineNavigate captures current bgSrc without stale closure
   const bgSrcRef = useRef('');
 
@@ -308,8 +308,9 @@ export default function Home() {
   //            +1 = going to newer haiku (exit down, enter from top)
   const doTimelineNavigate = useCallback((newPlaceIdx: number, direction: 1 | -1) => {
     const exitClass = direction === -1 ? 'timeline-exit-up' : 'timeline-exit-down';
+    const enterClass = direction === -1 ? 'timeline-enter-from-bottom' : 'timeline-enter-from-top';
     setIsTransitioning(true);
-    setTimelineSlideState({ exitClass, bgSrc: bgSrcRef.current });
+    setTimelineSlideState({ exitClass, enterClass, bgSrc: bgSrcRef.current });
     setTimeout(() => {
       setPlaceHaikuIndex(newPlaceIdx);
       setInTimelineMode(true);
@@ -662,7 +663,7 @@ export default function Home() {
 
       {/* Haiku stage — hold mechanic targets this whole div */}
       <div
-        className="haiku-stage"
+        className={`haiku-stage${timelineSlideState ? ` ${timelineSlideState.enterClass}` : ''}`}
         onMouseDown={startHold}
         onMouseUp={endHold}
         onMouseLeave={endHold}
@@ -863,13 +864,6 @@ export default function Home() {
       {/* Your Haikus — magic-link identity view */}
       <YourHaikus open={yourHaikusOpen} onClose={() => setYourHaikusOpen(false)} />
 
-      {/* DIAGNOSTIC: test timeline-exit-up CSS class */}
-      <button
-        style={{ position: 'fixed', bottom: 60, left: 20, zIndex: 999, background: 'blue', color: 'white', padding: '8px' }}
-        onClick={() => setTimelineSlideState({ exitClass: 'timeline-exit-up', bgSrc: bgSrcRef.current || '' })}
-      >
-        test slide
-      </button>
     </>
   );
 }
