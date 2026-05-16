@@ -3,16 +3,16 @@
 import { useRef, useImperativeHandle, forwardRef } from 'react';
 
 export type PageCurlHandle = {
-  triggerCurl: (onMidpoint: () => void) => void;
+  triggerCurl: (direction: 'forward' | 'backward', onMidpoint: () => void) => void;
 };
 
-function drawCurl(ctx: CanvasRenderingContext2D, t: number, W: number, H: number) {
-  const px = W * (1 - t);
-  const py = H * (1 - t * 0.7);
+// Forward curl: peel originates at bottom-right, travels to top-left
+function drawForwardCurl(ctx: CanvasRenderingContext2D, t: number, W: number, H: number) {
+  const px = W * (1 - t);  // W → 0
+  const py = H * (1 - t);  // H → 0
 
   ctx.clearRect(0, 0, W, H);
 
-  // Revealed parchment underneath the peeling page
   ctx.beginPath();
   ctx.moveTo(W, H);
   ctx.lineTo(px, H);
@@ -21,17 +21,44 @@ function drawCurl(ctx: CanvasRenderingContext2D, t: number, W: number, H: number
   ctx.fillStyle = '#ede6d6';
   ctx.fill();
 
-  // Shadow depth along the curl
   const grad = ctx.createRadialGradient(px, py, 0, px, py, W * 0.4);
   grad.addColorStop(0, 'rgba(30,26,20,0.18)');
   grad.addColorStop(1, 'rgba(30,26,20,0)');
   ctx.fillStyle = grad;
   ctx.fill();
 
-  // Highlight line along the fold edge
   ctx.beginPath();
   ctx.moveTo(px, H);
   ctx.quadraticCurveTo(px, py, W, py * 0.3);
+  ctx.strokeStyle = 'rgba(245,240,232,0.6)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
+
+// Backward curl: peel originates at bottom-left, travels to top-right
+function drawBackwardCurl(ctx: CanvasRenderingContext2D, t: number, W: number, H: number) {
+  const px = W * t;        // 0 → W
+  const py = H * (1 - t);  // H → 0
+
+  ctx.clearRect(0, 0, W, H);
+
+  ctx.beginPath();
+  ctx.moveTo(0, H);
+  ctx.lineTo(px, H);
+  ctx.quadraticCurveTo(px, py, 0, py * 0.3);
+  ctx.closePath();
+  ctx.fillStyle = '#ede6d6';
+  ctx.fill();
+
+  const grad = ctx.createRadialGradient(px, py, 0, px, py, W * 0.4);
+  grad.addColorStop(0, 'rgba(30,26,20,0.18)');
+  grad.addColorStop(1, 'rgba(30,26,20,0)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(px, H);
+  ctx.quadraticCurveTo(px, py, 0, py * 0.3);
   ctx.strokeStyle = 'rgba(245,240,232,0.6)';
   ctx.lineWidth = 1.5;
   ctx.stroke();
@@ -42,7 +69,7 @@ const PageCurl = forwardRef<PageCurlHandle, object>(function PageCurl(_, ref) {
   const rafRef = useRef<number | null>(null);
 
   useImperativeHandle(ref, () => ({
-    triggerCurl(onMidpoint: () => void) {
+    triggerCurl(direction: 'forward' | 'backward', onMidpoint: () => void) {
       const canvas = canvasRef.current;
       if (!canvas) { onMidpoint(); return; }
       const ctx = canvas.getContext('2d');
@@ -53,11 +80,11 @@ const PageCurl = forwardRef<PageCurlHandle, object>(function PageCurl(_, ref) {
         rafRef.current = null;
       }
 
-      // Set canvas resolution to match the viewport
       const W = canvas.width = window.innerWidth;
       const H = canvas.height = window.innerHeight;
+      const draw = direction === 'forward' ? drawForwardCurl : drawBackwardCurl;
 
-      const DURATION = 500;
+      const DURATION = 380;
       let start: number | null = null;
       let midpointFired = false;
 
@@ -65,9 +92,9 @@ const PageCurl = forwardRef<PageCurlHandle, object>(function PageCurl(_, ref) {
         if (start === null) start = ts;
         const t = Math.min((ts - start) / DURATION, 1);
 
-        drawCurl(ctx, t, W, H);
+        draw(ctx, t, W, H);
 
-        if (!midpointFired && t >= 0.6) {
+        if (!midpointFired && t >= 0.5) {
           midpointFired = true;
           onMidpoint();
         }

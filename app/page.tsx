@@ -286,19 +286,19 @@ export default function Home() {
     : journeyPost;
 
   // Curl + reveal a new journey haiku. Always clears timeline mode.
-  // Stored conn/journeyType are for a future left-edge hairline rule — not displayed.
+  // direction: 'forward' = swipe left/next, 'backward' = swipe right/prev.
   // curlRef is intentionally omitted from deps — refs are stable.
-  const doNavigate = useCallback((newIdx: number, conn?: string, journeyType?: string) => {
+  const doNavigate = useCallback((newIdx: number, conn?: string, journeyType?: string, direction: 'forward' | 'backward' = 'forward') => {
     if (conn) setThreadText(conn);
     if (journeyType) setThreadType(journeyType);
     setInTimelineMode(false);
     setIsTransitioning(true);
     if (curlRef.current) {
-      curlRef.current.triggerCurl(() => {
-        // Fires at t=0.6 (~300ms) — swap content while curl still running
+      curlRef.current.triggerCurl(direction, () => {
+        // Fires at t=0.5 (~190ms) — swap content while curl still running
         setCi(newIdx);
         triggerReveal();
-        // isTransitioning clears at curl end (~200ms later = ~500ms total)
+        // isTransitioning clears at curl end (~190ms later = ~380ms total)
         setTimeout(() => setIsTransitioning(false), 200);
       });
     } else {
@@ -330,6 +330,7 @@ export default function Home() {
   // Reads journeyIndexRef so callers don't need ci in their closure.
   const advanceJourney = useCallback((dir: 1 | -1) => {
     if (!appReady || !journey) return;
+    const direction = dir === 1 ? 'forward' : 'backward';
     const ni = journeyIndexRef.current + dir;
     if (ni < 0) return;
     if (ni >= journey.seq.length) {
@@ -338,7 +339,7 @@ export default function Home() {
         nextJourneyRef.current = null;
         globalJourneyRef.current = newJ;
         setJourney(newJ);
-        doNavigate(0, '', newJ.type);
+        doNavigate(0, '', newJ.type, direction);
       } else {
         setIsTransitioning(true);
         setWipeActive(true);
@@ -361,7 +362,7 @@ export default function Home() {
       }
       return;
     }
-    doNavigate(ni, journey.conn[ni], journey.type);
+    doNavigate(ni, journey.conn[ni], journey.type, direction);
   }, [appReady, journey, doNavigate, triggerReveal]);
 
   // Exit timeline mode.
