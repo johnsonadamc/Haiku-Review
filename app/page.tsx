@@ -360,20 +360,24 @@ export default function Home() {
     setTimeout(() => setIsTransitioning(false), 430);
   }, [triggerReveal]);
 
-  // Vertical card slide + show a different haiku from the same place (enters/stays in timeline mode).
+  // iOS-style simultaneous push — both cards animate at once, no midpoint swap.
   // direction: -1 = going to older haiku (exit up, enter from bottom)
   //            +1 = going to newer haiku (exit down, enter from top)
   const doTimelineNavigate = useCallback((newPlaceIdx: number, direction: 1 | -1) => {
     const exitClass = direction === -1 ? 'timeline-exit-up' : 'timeline-exit-down';
     const enterClass = direction === -1 ? 'timeline-enter-from-bottom' : 'timeline-enter-from-top';
     setIsTransitioning(true);
+    // Capture bgSrc of departing card for the exit overlay before state updates
     setTimelineSlideState({ exitClass, enterClass, bgSrc: bgSrcRef.current });
+    // New content renders immediately, pre-rendered beneath the exiting overlay
+    setPlaceHaikuIndex(newPlaceIdx);
+    setInTimelineMode(true);
+    triggerReveal();
+    // Clear after both animations finish (exit 320ms + enter 380ms + 30ms delay = ~410ms)
     setTimeout(() => {
-      setPlaceHaikuIndex(newPlaceIdx);
-      setInTimelineMode(true);
-      triggerReveal();
-    }, 160);
-    setTimeout(() => setIsTransitioning(false), 330);
+      setTimelineSlideState(null);
+      setIsTransitioning(false);
+    }, 420);
   }, [triggerReveal]);
 
   // Core journey navigation — no isTransitioning guard so timeline boundary exits are seamless.
@@ -581,6 +585,12 @@ export default function Home() {
   // Slider visible when the current place has 2+ haikus and app is ready
   const sliderVisible = appReady && placeHaikus.length >= 2;
 
+  // Timeline position counter: 1 = newest (top of slider), N = oldest (bottom)
+  const atNewest = placeHaikuIndex === placeHaikus.length - 1;
+  const showNavArrows = appReady && (!inTimelineMode || atNewest);
+  const showTimelineCounter = appReady && inTimelineMode && !atNewest;
+  const timelinePosition = placeHaikus.length - placeHaikuIndex;
+
   const threadColor = threadType ? (THREAD_COLORS[threadType] ?? 'rgba(139,106,42,0.15)') : 'rgba(139,106,42,0.15)';
   void threadText;
 
@@ -617,7 +627,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* Timeline vertical slide — exit overlay peels the departing card up or down */}
+      {/* Timeline exit overlay — animates away while new card is pre-rendered beneath it */}
       {timelineSlideState && (
         <div
           className={timelineSlideState.exitClass}
@@ -628,7 +638,6 @@ export default function Home() {
             backgroundColor: 'var(--parchment)',
             filter: timelineSlideState.bgSrc ? 'saturate(0.6) brightness(1.12) contrast(0.88)' : undefined,
           }}
-          onAnimationEnd={() => setTimelineSlideState(null)}
         >
           <div style={{
             position: 'absolute', inset: 0,
@@ -793,8 +802,8 @@ export default function Home() {
         }}>{authorText}</div>
       </div>
 
-      {/* Nav — hidden until app is ready */}
-      {appReady && (
+      {/* Nav arrows — hidden in timeline mode unless at the newest (position 1) haiku */}
+      {showNavArrows && (
         <div style={{
           position: 'fixed', left: '50%', bottom: 30, transform: 'translateX(-50%)',
           zIndex: 20, display: 'flex', alignItems: 'center', gap: 4,
@@ -820,6 +829,19 @@ export default function Home() {
             next
             <svg className="nb-ar" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </button>
+        </div>
+      )}
+
+      {/* Timeline position counter — replaces nav arrows while in timeline mode (position 2+) */}
+      {showTimelineCounter && (
+        <div style={{
+          position: 'fixed', left: '50%', bottom: 30, transform: 'translateX(-50%)',
+          zIndex: 20, pointerEvents: 'none',
+          fontFamily: "'Shippori Mincho', serif", fontSize: 13,
+          color: 'var(--ink-faint)', letterSpacing: '0.2em',
+          textTransform: 'uppercase', opacity: 0.6,
+        }}>
+          {timelinePosition} of {placeHaikus.length}
         </div>
       )}
 

@@ -155,21 +155,22 @@ body::after {
   .jexit-btn { min-height: 44px !important; left: 20px !important; }
 }
 
-/* ── PAGE CURL TRANSITION ── */
+/* ── PAGE CURL TRANSITION — origin at top corners, collapses toward top edge ── */
 @keyframes curl-forward {
   0%   { clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%); }
-  100% { clip-path: polygon(0% 0%, 100% 0%, 0% 0%, 0% 100%); }
+  100% { clip-path: polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%); }
 }
 
 @keyframes curl-backward {
   0%   { clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%); }
-  100% { clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 100% 0%); }
+  100% { clip-path: polygon(0% 0%, 100% 0%, 0% 0%, 0% 0%); }
 }
 
 .page-curl-exit-forward {
   position: fixed;
   inset: 0;
   z-index: 40;
+  transform-origin: top right;
   animation: curl-forward 420ms cubic-bezier(0.4, 0, 1, 1) forwards;
 }
 
@@ -177,58 +178,58 @@ body::after {
   position: fixed;
   inset: 0;
   z-index: 40;
+  transform-origin: top left;
   animation: curl-backward 420ms cubic-bezier(0.4, 0, 1, 1) forwards;
 }
 
-/* Bright line that travels with the peel edge */
+/* Bright highlight along the top peeling edge */
 .page-curl-exit-forward::after,
 .page-curl-exit-backward::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(to left, rgba(245,240,232,0.8) 0%, transparent 4%);
+  background: linear-gradient(to bottom, rgba(245,240,232,0.7) 0%, transparent 3%);
   pointer-events: none;
 }
 
-.page-curl-exit-backward::after {
-  background: linear-gradient(to right, rgba(245,240,232,0.8) 0%, transparent 4%);
-}
-
-/* ── TIMELINE VERTICAL SLIDE TRANSITION ── */
-@keyframes slide-exit-up {
+/* ── TIMELINE TRANSITION — iOS-style simultaneous push with parallax depth ── */
+/* Going older (swipe up): exit card accelerates out upward; new card enters from below */
+@keyframes tl-exit-up {
   from { transform: translateY(0); }
-  to   { transform: translateY(-100vh); }
+  to   { transform: translateY(-110vh); }
 }
-@keyframes slide-exit-down {
-  from { transform: translateY(0); }
-  to   { transform: translateY(100vh); }
-}
-@keyframes slide-enter-from-bottom {
-  from { transform: translateY(100vh); }
+@keyframes tl-enter-from-bottom {
+  from { transform: translateY(65vh); }
   to   { transform: translateY(0); }
 }
-@keyframes slide-enter-from-top {
-  from { transform: translateY(-100vh); }
+/* Going newer (swipe down): exit card accelerates out downward; new card enters from above */
+@keyframes tl-exit-down {
+  from { transform: translateY(0); }
+  to   { transform: translateY(110vh); }
+}
+@keyframes tl-enter-from-top {
+  from { transform: translateY(-65vh); }
   to   { transform: translateY(0); }
 }
 
 .timeline-exit-up {
   position: fixed; inset: 0; z-index: 40;
-  animation: slide-exit-up 320ms cubic-bezier(0.4,0,0.2,1) forwards;
+  animation: tl-exit-up 320ms cubic-bezier(0.4, 0, 1, 1) forwards;
   box-shadow: 0 -8px 32px rgba(30,26,20,0.18);
 }
 .timeline-exit-down {
   position: fixed; inset: 0; z-index: 40;
-  animation: slide-exit-down 320ms cubic-bezier(0.4,0,0.2,1) forwards;
+  animation: tl-exit-down 320ms cubic-bezier(0.4, 0, 1, 1) forwards;
   box-shadow: 0 8px 32px rgba(30,26,20,0.18);
 }
+/* fill-mode: both — hold from-state during 30ms delay, hold to-state after animation */
 .timeline-enter-from-bottom {
   position: fixed; inset: 0; z-index: 39;
-  animation: slide-enter-from-bottom 320ms cubic-bezier(0.4,0,0.2,1) forwards;
+  animation: tl-enter-from-bottom 380ms cubic-bezier(0.25, 0.46, 0.45, 0.94) 30ms both;
 }
 .timeline-enter-from-top {
   position: fixed; inset: 0; z-index: 39;
-  animation: slide-enter-from-top 320ms cubic-bezier(0.4,0,0.2,1) forwards;
+  animation: tl-enter-from-top 380ms cubic-bezier(0.25, 0.46, 0.45, 0.94) 30ms both;
 }
 
 /* ── SUBMIT PANEL MOBILE ── */

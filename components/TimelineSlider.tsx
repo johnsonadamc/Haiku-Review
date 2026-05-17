@@ -24,13 +24,14 @@ export default function TimelineSlider({ placeHaikus, activeIndex, onSelect, vis
   const n = placeHaikus.length;
   if (n < 2) return null;
 
-  // Map click Y position to nearest tick index — same math as the old drag indexFromY.
+  // Map click Y position to nearest tick index.
+  // Slider is newest-at-top: pct=0 (top) → newest (n-1), pct=1 (bottom) → oldest (0).
   const handleTrackClick = (e: MouseEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
     const { top, height } = el.getBoundingClientRect();
     if (height === 0) return;
     const pct = Math.max(0, Math.min(1, (e.clientY - top) / height));
-    onSelect(Math.round(pct * (n - 1)));
+    onSelect(Math.round((1 - pct) * (n - 1)));
   };
 
   const labelBase: CSSProperties = {
@@ -65,10 +66,13 @@ export default function TimelineSlider({ placeHaikus, activeIndex, onSelect, vis
         }} />
 
         {placeHaikus.map((h, i) => {
-          const pct = n > 1 ? (i / (n - 1)) * 100 : 50;
+          // Newest at top (0%), oldest at bottom (100%)
+          const pct = n > 1 ? (1 - i / (n - 1)) * 100 : 50;
           const isActive = i === activeIndex;
           const yr = haikuYear(h);
-          const showYear = yr && (i === 0 || haikuYear(placeHaikus[i - 1]) !== yr);
+          // Show year label at the top of each year group (highest-index haiku of that year)
+          const nextH = i + 1 < n ? placeHaikus[i + 1] : null;
+          const showYear = yr && (i === n - 1 || (nextH !== null && haikuYear(nextH) !== yr));
           const tickWidth = isActive ? 10 : 6;
           // Center tick on the track: tickRight + tickWidth/2 = TRACK_RIGHT
           const tickRight = TRACK_RIGHT - tickWidth / 2;
