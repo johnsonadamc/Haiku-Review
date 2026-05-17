@@ -554,12 +554,12 @@ export default function Home() {
   }, []);
 
   // Map dot click: build a place-seeded journey; exit restores the global one
-  const handlePlaceClick = useCallback(async (placeName: string) => {
+  const handlePlaceClick = useCallback(async (place: { id: string; name: string; city: string; google_place_id: string }) => {
     setMapOpen(false);
     setIsTransitioning(true);
     setWipeActive(true);
     try {
-      const j = await buildJourneyFromPool(posts, placeName);
+      const j = await buildJourneyFromPool(posts, place.name);
       setThreadType(j.type);
       setJourney(j);
       setCi(0);
@@ -582,6 +582,10 @@ export default function Home() {
   }, [triggerReveal]);
 
   const placeCount = new Set(posts.map((p: HaikuPost) => getPlace(p)).filter(Boolean)).size;
+
+  const currentPlace = currentPost?.places?.lat != null && currentPost?.places?.lng != null
+    ? { lat: currentPost.places.lat, lng: currentPost.places.lng, name: currentPost.places.name }
+    : undefined;
 
   const bgSrc = currentPost ? getBg(currentPost) : '';
   bgSrcRef.current = bgSrc;
@@ -929,7 +933,7 @@ export default function Home() {
       }}>{toastMsg}</div>
 
       {/* Map overlay */}
-      <MapOverlay open={mapOpen} posts={posts} onClose={() => setMapOpen(false)} onPlaceSelect={handlePlaceClick} />
+      <MapOverlay open={mapOpen} onClose={() => setMapOpen(false)} onPlaceSelect={handlePlaceClick} currentPlace={currentPlace} />
 
       {/* Submit panel */}
       <SubmitPanel

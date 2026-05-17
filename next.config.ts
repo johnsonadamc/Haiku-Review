@@ -1,6 +1,6 @@
 import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
-  transpilePackages: ['syllable'],
+  transpilePackages: ['syllable', 'maplibre-gl'],
   images: {
     remotePatterns: [
       {
