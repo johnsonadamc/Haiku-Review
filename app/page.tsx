@@ -135,11 +135,14 @@ export default function Home() {
   // Mirrors ci — lets timeline callbacks read the current journey index without stale closures
   const journeyIndexRef = useRef(0);
   // Depth push transition state — set on navigate, cleared after 420ms
-  const [depthState, setDepthState] = useState<{ exitClass: string; enterClass: string; bgSrc: string } | null>(null);
+  const [depthState, setDepthState] = useState<{ exitClass: string; enterClass: string; bgSrc: string; lines: string[]; locationText: string; authorText: string } | null>(null);
   // Timeline vertical slide state — exit overlay slides out, enter class applied to haiku stage slides in
   const [timelineSlideState, setTimelineSlideState] = useState<{ exitClass: string; enterClass: string; bgSrc: string } | null>(null);
-  // Ref so doNavigate/doTimelineNavigate captures current bgSrc without stale closure
+  // Refs so doNavigate captures current card content without stale closures
   const bgSrcRef = useRef('');
+  const linesRef = useRef<string[]>(['', '', '']);
+  const locationTextRef = useRef('');
+  const authorTextRef = useRef('');
 
   // Timeline slider state
   const [placeHaikus, setPlaceHaikus] = useState<HaikuPost[]>([]);
@@ -354,7 +357,13 @@ export default function Home() {
     setIsTransitioning(true);
     const exitClass = 'depth-exit';
     const enterClass = direction === 'forward' ? 'depth-enter-from-right' : 'depth-enter-from-left';
-    setDepthState({ exitClass, enterClass, bgSrc: bgSrcRef.current });
+    setDepthState({
+      exitClass, enterClass,
+      bgSrc: bgSrcRef.current,
+      lines: linesRef.current,
+      locationText: locationTextRef.current,
+      authorText: authorTextRef.current,
+    });
     setCi(newIdx);
     triggerReveal();
     setTimeout(() => {
@@ -579,6 +588,9 @@ export default function Home() {
   const lines = currentPost ? getLines(currentPost) : ['', '', ''];
   const locationText = currentPost ? getLocationLabel(currentPost) : '';
   const authorText = currentPost ? `— ${currentPost.author || 'anonymous'}` : '';
+  linesRef.current = lines;
+  locationTextRef.current = locationText;
+  authorTextRef.current = authorText;
 
   const journeyProgress = journey ? ((ci + 1) / journey.seq.length * 100) : 0;
 
@@ -606,7 +618,7 @@ export default function Home() {
         transition: 'opacity 0.38s ease',
       }} />
 
-      {/* Depth push exit — departing card scales/fades out while new card slides in beneath */}
+      {/* Depth push exit — departing card (full content) scales/fades out while new card slides in beneath */}
       {depthState && (
         <div
           className={depthState.exitClass}
@@ -615,17 +627,59 @@ export default function Home() {
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundColor: 'var(--parchment)',
-            filter: depthState.bgSrc
-              ? 'saturate(0.6) brightness(1.12) contrast(0.88)'
-              : undefined,
+            filter: depthState.bgSrc ? 'saturate(0.6) brightness(1.12) contrast(0.88)' : undefined,
           }}
         >
+          {/* Parchment wash */}
           <div style={{
-            position: 'absolute',
-            inset: 0,
+            position: 'absolute', inset: 0,
             background: 'linear-gradient(to top, rgba(245,240,232,0.97) 0%, rgba(245,240,232,0.88) 22%, rgba(245,240,232,0.62) 48%, rgba(245,240,232,0.2) 72%, rgba(245,240,232,0.04) 100%)',
             zIndex: 1,
           }} />
+          {/* Outgoing haiku content — mirrors haiku-stage layout */}
+          <div style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 2,
+            padding: '0 60px 58px 52px',
+          }}>
+            {/* Location tag */}
+            <div style={{
+              fontFamily: "'Shippori Mincho', serif", fontSize: 10, color: 'var(--ink-soft)',
+              opacity: 0.68, marginBottom: 16,
+              display: 'inline-flex', alignItems: 'center', gap: 10,
+              letterSpacing: '0.28em', textTransform: 'uppercase',
+            }}>
+              <div style={{ width: 20, height: 1, background: 'var(--gold)', flexShrink: 0, opacity: 0.9 }} />
+              {depthState.locationText}
+            </div>
+            {/* Haiku lines */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 0, marginBottom: 20 }}>
+              <div style={{
+                fontFamily: "'Shippori Mincho', serif", color: 'var(--ink)',
+                lineHeight: 1.2, display: 'block', whiteSpace: 'nowrap',
+                textShadow: '0 1px 4px rgba(245,240,232,0.55)',
+                fontSize: 'clamp(22px, 3vw, 42px)', fontWeight: 500,
+              }}>{depthState.lines[0]}</div>
+              <div style={{
+                fontFamily: "'Shippori Mincho', serif", color: 'var(--ink)',
+                lineHeight: 1.2, display: 'block', whiteSpace: 'nowrap',
+                textShadow: '0 1px 4px rgba(245,240,232,0.55)',
+                fontSize: 'clamp(19px, 2.6vw, 37px)', fontWeight: 400,
+                paddingLeft: 'clamp(10px, 1.4vw, 20px)',
+              }}>{depthState.lines[1]}</div>
+              <div style={{
+                fontFamily: "'Shippori Mincho', serif", color: 'var(--ink)',
+                lineHeight: 1.2, display: 'block', whiteSpace: 'nowrap',
+                textShadow: '0 1px 4px rgba(245,240,232,0.55)',
+                fontSize: 'clamp(17px, 2.3vw, 33px)', fontWeight: 400,
+                paddingLeft: 'clamp(20px, 2.8vw, 38px)',
+              }}>{depthState.lines[2]}</div>
+            </div>
+            {/* Author */}
+            <div style={{
+              fontFamily: "'Shippori Mincho', serif", fontSize: 11, color: 'var(--ink-soft)',
+              opacity: 0.5, letterSpacing: '0.2em', whiteSpace: 'nowrap', marginBottom: 8,
+            }}>{depthState.authorText}</div>
+          </div>
         </div>
       )}
 
