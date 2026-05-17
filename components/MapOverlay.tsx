@@ -181,8 +181,8 @@ export default function MapOverlay({ open, onClose, onPlaceSelect, currentPlace 
 
         touchEl.addEventListener('click', (e) => {
           e.stopPropagation();
-          // Read place id from the DOM element, look up in the always-current ref
-          const placeId = touchEl.dataset.placeId;
+          // e.currentTarget is always the element the listener is attached to — never stale
+          const placeId = (e.currentTarget as HTMLElement).dataset.placeId;
           const found = placesRef.current.find(p => p.id === placeId);
           if (!found) return;
           // Record tooltip anchor before triggering React state update
