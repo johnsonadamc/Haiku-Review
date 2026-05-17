@@ -180,6 +180,7 @@ export default function MapOverlay({ open, onClose, onPlaceSelect, currentPlace 
           // Read place id from the DOM element — never from a closure
           const placeId = touchEl.dataset.placeId;
           const current = placesRef.current.find(p => p.id === placeId);
+          console.log('[MapOverlay] marker click — placeId from dataset:', placeId, '| found:', current?.name ?? 'NOT FOUND');
           if (!current) return;
           activePlaceIdRef.current = placeId ?? null;
           const rect = dotEl.getBoundingClientRect();
@@ -301,7 +302,11 @@ export default function MapOverlay({ open, onClose, onPlaceSelect, currentPlace 
             onClick={() => {
               // Look up place from the ref — not from the closure — so this is always correct
               const placeId = activePlaceIdRef.current;
+              const allIds = placesRef.current.map(p => `${p.id}:${p.name}`);
               const p = placesRef.current.find(pl => pl.id === placeId);
+              console.log('[MapOverlay] Go pressed — activePlaceIdRef:', placeId);
+              console.log('[MapOverlay] Go pressed — placesRef ids:', allIds);
+              console.log('[MapOverlay] Go pressed — resolved place:', p ? p.name : 'NOT FOUND');
               if (!p) return;
               setTooltip(null);
               activePlaceIdRef.current = null;

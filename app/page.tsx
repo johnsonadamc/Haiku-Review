@@ -555,6 +555,7 @@ export default function Home() {
 
   // Map dot click: build a place-seeded journey; exit restores the global one
   const handlePlaceClick = useCallback(async (place: { id: string; name: string; city: string; google_place_id: string }) => {
+    console.log('[page] handlePlaceClick received — id:', place.id, '| name:', place.name, '| city:', place.city);
     setMapOpen(false);
     setIsTransitioning(true);
     setWipeActive(true);
