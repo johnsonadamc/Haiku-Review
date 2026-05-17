@@ -134,8 +134,8 @@ export default function Home() {
   const journeyBuildingRef = useRef(false);
   // Mirrors ci — lets timeline callbacks read the current journey index without stale closures
   const journeyIndexRef = useRef(0);
-  // CSS 3D curl state — set on navigate, cleared by onAnimationEnd
-  const [curlState, setCurlState] = useState<{ direction: 'forward' | 'backward'; bgSrc: string } | null>(null);
+  // Depth push transition state — set on navigate, cleared after 420ms
+  const [depthState, setDepthState] = useState<{ exitClass: string; enterClass: string; bgSrc: string } | null>(null);
   // Timeline vertical slide state — exit overlay slides out, enter class applied to haiku stage slides in
   const [timelineSlideState, setTimelineSlideState] = useState<{ exitClass: string; enterClass: string; bgSrc: string } | null>(null);
   // Ref so doNavigate/doTimelineNavigate captures current bgSrc without stale closure
@@ -345,19 +345,22 @@ export default function Home() {
     ? (placeHaikus[placeHaikuIndex] as HaikuPost | undefined)
     : journeyPost;
 
-  // CSS 3D curl + reveal a new journey haiku. Always clears timeline mode.
+  // Depth push + reveal a new journey haiku. Always clears timeline mode.
   // direction: 'forward' = swipe left/next, 'backward' = swipe right/prev.
   const doNavigate = useCallback((newIdx: number, conn?: string, journeyType?: string, direction: 'forward' | 'backward' = 'forward') => {
     if (conn) setThreadText(conn);
     if (journeyType) setThreadType(journeyType);
     setInTimelineMode(false);
     setIsTransitioning(true);
-    setCurlState({ direction, bgSrc: bgSrcRef.current });
+    const exitClass = 'depth-exit';
+    const enterClass = direction === 'forward' ? 'depth-enter-from-right' : 'depth-enter-from-left';
+    setDepthState({ exitClass, enterClass, bgSrc: bgSrcRef.current });
+    setCi(newIdx);
+    triggerReveal();
     setTimeout(() => {
-      setCi(newIdx);
-      triggerReveal();
-    }, 210);
-    setTimeout(() => setIsTransitioning(false), 430);
+      setDepthState(null);
+      setIsTransitioning(false);
+    }, 420);
   }, [triggerReveal]);
 
   // iOS-style simultaneous push — both cards animate at once, no midpoint swap.
@@ -603,20 +606,19 @@ export default function Home() {
         transition: 'opacity 0.38s ease',
       }} />
 
-      {/* Clip-path diagonal peel — fires on journey navigation, clears when animation ends */}
-      {curlState && (
+      {/* Depth push exit — departing card scales/fades out while new card slides in beneath */}
+      {depthState && (
         <div
-          className={curlState.direction === 'forward' ? 'page-curl-exit-forward' : 'page-curl-exit-backward'}
+          className={depthState.exitClass}
           style={{
-            backgroundImage: curlState.bgSrc ? `url(${curlState.bgSrc})` : undefined,
+            backgroundImage: depthState.bgSrc ? `url(${depthState.bgSrc})` : undefined,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundColor: 'var(--parchment)',
-            filter: curlState.bgSrc
+            filter: depthState.bgSrc
               ? 'saturate(0.6) brightness(1.12) contrast(0.88)'
               : undefined,
           }}
-          onAnimationEnd={() => setCurlState(null)}
         >
           <div style={{
             position: 'absolute',
@@ -734,7 +736,7 @@ export default function Home() {
 
       {/* Haiku stage — hold mechanic targets this whole div */}
       <div
-        className={`haiku-stage${timelineSlideState ? ` ${timelineSlideState.enterClass}` : ''}`}
+        className={`haiku-stage${timelineSlideState ? ` ${timelineSlideState.enterClass}` : ''}${depthState ? ` ${depthState.enterClass}` : ''}`}
         onMouseDown={startHold}
         onMouseUp={endHold}
         onMouseLeave={endHold}
