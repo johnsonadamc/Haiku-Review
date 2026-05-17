@@ -64,6 +64,19 @@ type _getCityRef = typeof getCity;
 
 const BRIDGES = ['the thread continues', 'another voice, same sky', 'silence answered', 'the mood deepens', 'worlds apart, same ache'];
 
+const THREAD_COLORS: Record<string, string> = {
+  'emotional resonance':          '#8b2a1a',
+  'time of day':                  '#8a6a2a',
+  'the texture of silence':       '#6b6050',
+  'figures seen from a distance': '#4a6a7a',
+  'the weight of memory':         '#5a4a6a',
+  'threshold moments':            '#6a7a4a',
+  'what is left unsaid':          '#9e9080',
+  'light and its quality':        '#c8a84a',
+  'solitude in crowds':           '#6a4a4a',
+  'the presence of absence':      '#7a8a8a',
+};
+
 // One haiku per place — the most recent (highest created_at). Journey always shows the "now".
 function mostRecentPerPlace(posts: HaikuPost[]): HaikuPost[] {
   const map = new Map<string, HaikuPost>();
@@ -106,6 +119,7 @@ export default function Home() {
   const [posts, setPosts] = useState<HaikuPost[]>([]);
   const [ci, setCi] = useState(0);
   const [appReady, setAppReady] = useState(false);
+  const [qrMode, setQrMode] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [wipeActive, setWipeActive] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
@@ -192,27 +206,70 @@ export default function Home() {
     t(1540, () => setShowAuthor(true));
   }, [clearRevealTimers]);
 
-  // Atmospheric open: fetch haikus + build initial journey, then reveal after rule animation
+  // Atmospheric open: fetch haikus + build initial journey, then reveal after rule animation.
+  // QR/place-mode (?place=<google_place_id>): skips the rule animation, shows first 3 haikus
+  // from that place as an intro, then pre-builds a seeded AI journey for seamless continuation.
   useEffect(() => {
     const stored = JSON.parse(localStorage.getItem('hr_held') || '[]');
     setHeldSet(new Set(stored));
 
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('haikus') === 'mine') {
-        setYourHaikusOpen(true);
-        window.history.replaceState({}, '', window.location.pathname);
-      }
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('haikus') === 'mine') {
+      setYourHaikusOpen(true);
     }
 
-    // Rule draws for 800ms then fades 400ms — hold reveal until both data and animation are done
-    const ruleReady = new Promise<void>(resolve => setTimeout(resolve, 1200));
+    const placeParam = params.get('place');
+    if (params.get('haikus') || placeParam) {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    if (placeParam) setQrMode(true);
+
+    // Skip the 1200ms atmospheric rule wait in QR/place-mode
+    const ruleReady = placeParam
+      ? Promise.resolve()
+      : new Promise<void>(resolve => setTimeout(resolve, 1200));
 
     const dataReady: Promise<Journey> = fetch('/api/haikus')
       .then(r => r.json())
       .then(async (d) => {
         const haikus: HaikuPost[] = d.haikus?.length ? d.haikus : SEED_POSTS;
         setPosts(haikus);
+
+        if (placeParam) {
+          // QR entry: look up place by google_place_id, build a 3-haiku chronological intro
+          try {
+            const supabase = createSupabaseClient();
+            const { data: placeData } = await supabase
+              .from('places')
+              .select('id, name')
+              .eq('google_place_id', placeParam)
+              .maybeSingle();
+
+            if (placeData) {
+              const introHaikus = haikus
+                .filter(h => h.place_id === placeData.id)
+                .sort((a, b) => (a.created_at || '') < (b.created_at || '') ? -1 : 1)
+                .slice(0, 3);
+
+              if (introHaikus.length > 0) {
+                const introJourney: Journey = {
+                  seq: introHaikus,
+                  conn: introHaikus.map((_, i) => i === 0 ? '' : BRIDGES[Math.min(i - 1, BRIDGES.length - 1)]),
+                  type: 'threshold moments',
+                };
+                // Pre-build the seeded AI journey — loaded into nextJourneyRef so advanceJourney
+                // picks it up seamlessly when the user swipes past the last intro haiku.
+                journeyBuildingRef.current = true;
+                buildJourneyFromPool(haikus, placeData.name).then(j => {
+                  nextJourneyRef.current = j;
+                  journeyBuildingRef.current = false;
+                });
+                return introJourney;
+              }
+            }
+          } catch { /* fall through to normal journey */ }
+        }
+
         return buildJourneyFromPool(haikus);
       })
       .catch(async () => {
@@ -487,6 +544,7 @@ export default function Home() {
     setWipeActive(true);
     try {
       const j = await buildJourneyFromPool(posts, placeName);
+      setThreadType(j.type);
       setJourney(j);
       setCi(0);
       setWipeActive(false);
@@ -523,8 +581,8 @@ export default function Home() {
   // Slider visible when the current place has 2+ haikus and app is ready
   const sliderVisible = appReady && placeHaikus.length >= 2;
 
-  // Suppress unused warning — stored for future hairline rule feature
-  void threadType; void threadText;
+  const threadColor = threadType ? (THREAD_COLORS[threadType] ?? 'rgba(139,106,42,0.15)') : 'rgba(139,106,42,0.15)';
+  void threadText;
 
   return (
     <>
@@ -580,8 +638,16 @@ export default function Home() {
         </div>
       )}
 
+      {/* Left-edge thread color hairline — 1px rule, color maps to current thread type, crossfades 800ms */}
+      <div style={{
+        position: 'fixed', left: 0, top: 0, width: 1, height: '100%',
+        zIndex: 5, pointerEvents: 'none',
+        backgroundColor: threadColor,
+        transition: 'background-color 800ms ease',
+      }} />
+
       {/* Atmospheric open — gold rule draws left to right (800ms), then fades (400ms) */}
-      {!appReady && (
+      {!appReady && !qrMode && (
         <div className="open-rule" style={{
           position: 'fixed', top: '50%', left: 0, zIndex: 300,
           height: 1, background: '#8a6a2a', pointerEvents: 'none',
