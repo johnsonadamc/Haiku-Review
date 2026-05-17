@@ -14,12 +14,6 @@ type Place = {
   google_place_id: string;
 };
 
-type TooltipState = {
-  place: Place;
-  x: number;
-  y: number;
-};
-
 type Props = {
   open: boolean;
   onClose: () => void;
@@ -42,20 +36,23 @@ export default function MapOverlay({ open, onClose, onPlaceSelect, currentPlace 
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<MapLibreMarker[]>([]);
 
-  // Keep stable refs to callbacks and mutable state used inside DOM event listeners
+  // Stable ref to the callback — always current, safe to call from DOM handlers
   const onPlaceSelectRef = useRef(onPlaceSelect);
   onPlaceSelectRef.current = onPlaceSelect;
   const currentPlaceRef = useRef(currentPlace);
   currentPlaceRef.current = currentPlace;
   // Mirror of places state — always current, safe to read from DOM event handlers
   const placesRef = useRef<Place[]>([]);
-  // Id of the place whose tooltip is currently open — set by marker click, read by Go button
-  const activePlaceIdRef = useRef<string | null>(null);
+
+  // Tooltip anchor position — updated in same event as setSelectedPlace, read during render
+  const tooltipXRef = useRef(0);
+  const tooltipYRef = useRef(0);
 
   const [places, setPlaces] = useState<Place[]>([]);
-  placesRef.current = places; // always mirrors the current places array
+  placesRef.current = places;
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+  // selectedPlace is the single source of truth for which dot is active
+  const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   // Fetch places from Supabase on first open
@@ -98,11 +95,19 @@ export default function MapOverlay({ open, onClose, onPlaceSelect, currentPlace 
 
       map.touchZoomRotate.disableRotation();
       map.on('load', () => setMapLoaded(true));
-      // Tap on map background dismisses tooltip
-      map.on('click', () => {
-        activePlaceIdRef.current = null;
-        setTooltip(null);
+
+      // Dismiss tooltip only when the tap lands on the map canvas itself — not on a
+      // marker touch target. Markers call stopPropagation on the native DOM event, but
+      // MapLibre synthesises its own click from the canvas listener and can still fire.
+      // Checking the originalEvent target stops the map click from wiping selectedPlace
+      // immediately after a marker tap.
+      map.on('click', (e) => {
+        const target = e.originalEvent.target as HTMLElement | null;
+        if (!target?.closest('[data-place-id]')) {
+          setSelectedPlace(null);
+        }
       });
+
       mapRef.current = map;
 
       // Silent geolocation — no prompt language, no error shown if denied
@@ -150,8 +155,7 @@ export default function MapOverlay({ open, onClose, onPlaceSelect, currentPlace 
         // 44px touch target for reliable mobile taps
         const touchEl = document.createElement('div');
         touchEl.style.cssText = 'width:44px;height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer;';
-
-        // Place id stored on the element — click handler reads this, not the closure
+        // Attribute used by the map click guard to detect marker taps
         touchEl.dataset.placeId = place.id;
 
         const dotEl = document.createElement('div');
@@ -177,18 +181,15 @@ export default function MapOverlay({ open, onClose, onPlaceSelect, currentPlace 
 
         touchEl.addEventListener('click', (e) => {
           e.stopPropagation();
-          // Read place id from the DOM element — never from a closure
+          // Read place id from the DOM element, look up in the always-current ref
           const placeId = touchEl.dataset.placeId;
-          const current = placesRef.current.find(p => p.id === placeId);
-          console.log('[MapOverlay] marker click — placeId from dataset:', placeId, '| found:', current?.name ?? 'NOT FOUND');
-          if (!current) return;
-          activePlaceIdRef.current = placeId ?? null;
+          const found = placesRef.current.find(p => p.id === placeId);
+          if (!found) return;
+          // Record tooltip anchor before triggering React state update
           const rect = dotEl.getBoundingClientRect();
-          setTooltip({
-            place: current,
-            x: rect.left + rect.width / 2,
-            y: rect.top,
-          });
+          tooltipXRef.current = rect.left + rect.width / 2;
+          tooltipYRef.current = rect.top;
+          setSelectedPlace(found);
         });
 
         const marker = new maplibregl.Marker({ element: touchEl, anchor: 'center' })
@@ -208,25 +209,22 @@ export default function MapOverlay({ open, onClose, onPlaceSelect, currentPlace 
 
   // Dismiss tooltip when overlay closes
   useEffect(() => {
-    if (!open) {
-      activePlaceIdRef.current = null;
-      setTooltip(null);
-    }
+    if (!open) setSelectedPlace(null);
   }, [open]);
 
-  // Distance to tooltip place — shown only if geolocation was granted
-  const distanceMiles = tooltip && userCoords
-    ? haversineDistanceMiles(userCoords.lat, userCoords.lng, tooltip.place.lat, tooltip.place.lng)
+  // Distance to selected place — shown only if geolocation was granted
+  const distanceMiles = selectedPlace && userCoords
+    ? haversineDistanceMiles(userCoords.lat, userCoords.lng, selectedPlace.lat, selectedPlace.lng)
     : null;
 
   // Tooltip position: bottom edge sits 12px above the dot center
   const TOOLTIP_W = 208;
   const vw = typeof window !== 'undefined' ? window.innerWidth : 800;
   const vh = typeof window !== 'undefined' ? window.innerHeight : 900;
-  const tipLeft = tooltip
-    ? Math.max(12, Math.min(tooltip.x - TOOLTIP_W / 2, vw - TOOLTIP_W - 12))
+  const tipLeft = selectedPlace
+    ? Math.max(12, Math.min(tooltipXRef.current - TOOLTIP_W / 2, vw - TOOLTIP_W - 12))
     : 0;
-  const tipBottom = tooltip ? vh - tooltip.y + 12 : 0;
+  const tipBottom = selectedPlace ? vh - tooltipYRef.current + 12 : 0;
 
   return (
     <div style={{
@@ -253,8 +251,8 @@ export default function MapOverlay({ open, onClose, onPlaceSelect, currentPlace 
         aria-label="Close map"
       >×</button>
 
-      {/* Tooltip — appears above tapped dot; "Go" button triggers onPlaceSelect */}
-      {tooltip && (
+      {/* Tooltip — appears above tapped dot; "Go" triggers onPlaceSelect */}
+      {selectedPlace && (
         <div
           onClick={(e) => e.stopPropagation()}
           style={{
@@ -274,21 +272,21 @@ export default function MapOverlay({ open, onClose, onPlaceSelect, currentPlace 
             fontFamily: "'Shippori Mincho', serif",
             fontSize: 14, color: 'var(--ink)', marginBottom: 6,
           }}>
-            {tooltip.place.name}
+            {selectedPlace.name}
           </div>
           <div style={{ width: '100%', height: 1, background: 'var(--gold)', opacity: 0.5, marginBottom: 6 }} />
           <div style={{
             fontFamily: "'Shippori Mincho', serif",
             fontSize: 12, color: 'var(--ink-soft)', marginBottom: 4,
           }}>
-            {tooltip.place.city}
+            {selectedPlace.city}
           </div>
           <div style={{
             fontFamily: "'Shippori Mincho', serif",
             fontSize: 11, color: 'var(--ink-faint)',
             marginBottom: distanceMiles !== null ? 3 : 10,
           }}>
-            {tooltip.place.haiku_count || 0} {(tooltip.place.haiku_count || 0) === 1 ? 'haiku' : 'haikus'}
+            {selectedPlace.haiku_count || 0} {(selectedPlace.haiku_count || 0) === 1 ? 'haiku' : 'haikus'}
           </div>
           {distanceMiles !== null && (
             <div style={{
@@ -300,16 +298,9 @@ export default function MapOverlay({ open, onClose, onPlaceSelect, currentPlace 
           )}
           <button
             onClick={() => {
-              // Look up place from the ref — not from the closure — so this is always correct
-              const placeId = activePlaceIdRef.current;
-              const allIds = placesRef.current.map(p => `${p.id}:${p.name}`);
-              const p = placesRef.current.find(pl => pl.id === placeId);
-              console.log('[MapOverlay] Go pressed — activePlaceIdRef:', placeId);
-              console.log('[MapOverlay] Go pressed — placesRef ids:', allIds);
-              console.log('[MapOverlay] Go pressed — resolved place:', p ? p.name : 'NOT FOUND');
-              if (!p) return;
-              setTooltip(null);
-              activePlaceIdRef.current = null;
+              // selectedPlace is React state — always the place that was tapped, never stale
+              const p = selectedPlace;
+              setSelectedPlace(null);
               onPlaceSelectRef.current({ id: p.id, name: p.name, city: p.city, google_place_id: p.google_place_id });
             }}
             style={{
