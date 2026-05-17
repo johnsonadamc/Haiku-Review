@@ -560,6 +560,24 @@ export default function Home() {
     setWipeActive(true);
     try {
       const j = await buildJourneyFromPool(posts, place.name);
+
+      // Find the most recent haiku from the tapped place and force it to position 0.
+      // buildJourneyFromPool passes placeName as an AI hint — not a filter — so the
+      // first haiku in the returned sequence may be from a different place.
+      const placeHaikus = posts.filter(p =>
+        (p.place_id && p.place_id === place.id) || (p.places?.id && p.places.id === place.id)
+      );
+      if (placeHaikus.length > 0) {
+        const mostRecent = placeHaikus.reduce((best, p) =>
+          (p.created_at || '') > (best.created_at || '') ? p : best
+        );
+        const withoutSelected = j.seq.filter(h => String(h.id) !== String(mostRecent.id));
+        j.seq = [mostRecent, ...withoutSelected];
+        // conn is parallel to seq; bridges are never shown — rebuild as empty strings
+        j.conn = j.seq.map(() => '');
+        j.conn[0] = '';
+      }
+
       setThreadType(j.type);
       setJourney(j);
       setCi(0);
