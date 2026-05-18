@@ -241,11 +241,12 @@ export default function Home() {
       triggerReveal();
     };
 
-    // Animation gate: 6s to match the SVG path draw duration; immediate in QR/place-mode.
+    // Animation gate: 4s so the 800ms fade-out completes as the 6s path finishes drawing.
+    // Immediate in QR/place-mode — no animation wait.
     const animTimer = placeParam ? null : setTimeout(() => {
       state.animComplete = true;
       tryReveal();
-    }, 6000);
+    }, 4000);
 
     // Data fetch fires immediately — not gated on animation or any timer.
     fetch('/api/haikus')
@@ -813,14 +814,6 @@ export default function Home() {
         backgroundColor: threadColor,
         transition: 'background-color 800ms ease',
       }} />
-
-      {/* Atmospheric open — gold rule draws left to right (800ms), then fades (400ms) */}
-      {!appReady && !qrMode && (
-        <div className="open-rule" style={{
-          position: 'fixed', top: '50%', left: 0, zIndex: 300,
-          height: 1, background: '#8a6a2a', pointerEvents: 'none',
-        }} />
-      )}
 
       {/* Stage */}
       <div style={{ position: 'fixed', inset: 0, zIndex: 0, overflow: 'hidden' }}>
