@@ -465,11 +465,10 @@ export default function Home() {
   //   ArrowLeft/Right also allowed in timeline mode only when at the most-recent (journey) haiku
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      const atMostRecent = placeHaikuIndex === placeHaikus.length - 1;
       if (e.key === 'ArrowRight') {
-        if (!inTimelineMode || atMostRecent) navigate(1);
+        navigate(1);
       } else if (e.key === 'ArrowLeft') {
-        if (!inTimelineMode || atMostRecent) navigate(-1);
+        navigate(-1);
       } else if (e.key === 'ArrowUp') {
         if (placeHaikus.length > 1) navigateTimeline(-1);
       } else if (e.key === 'ArrowDown') {
@@ -501,8 +500,7 @@ export default function Home() {
       const isHorizontal = Math.abs(dx) > Math.abs(dy);
       if (isHorizontal) {
         if (Math.abs(dx) < 30) return;
-        const atMostRecent = placeHaikuIndex === placeHaikus.length - 1;
-        if (inTimelineMode && !atMostRecent) return; // blocked deeper in timeline
+        // Left/right always exits timeline mode and advances the journey
         navigate(dx < 0 ? 1 : -1);
       } else {
         if (Math.abs(dy) < 30 || placeHaikus.length < 2) return;
@@ -590,15 +588,6 @@ export default function Home() {
     }
   }, [posts, triggerReveal]);
 
-  const exitJourney = useCallback(() => {
-    const global = globalJourneyRef.current;
-    if (global) {
-      setJourney(global);
-      setCi(0);
-      triggerReveal();
-    }
-  }, [triggerReveal]);
-
   const placeCount = new Set(posts.map((p: HaikuPost) => getPlace(p)).filter(Boolean)).size;
 
   const currentPlace = currentPost?.places?.lat != null && currentPost?.places?.lng != null
@@ -616,8 +605,8 @@ export default function Home() {
 
   const journeyProgress = journey ? ((ci + 1) / journey.seq.length * 100) : 0;
 
-  // Exit button only appears during a place-specific journey (from map), not the global one
-  const isPlaceJourney = journey && journey !== globalJourneyRef.current;
+  // Show loading overlay during initial app load or when transitioning without a haiku to display
+  const showLoading = !appReady || (isTransitioning && !currentPost);
 
   // Slider visible when the current place has 2+ haikus and app is ready
   const sliderVisible = appReady && placeHaikus.length >= 2;
@@ -639,6 +628,21 @@ export default function Home() {
         opacity: wipeActive ? 1 : 0, pointerEvents: wipeActive ? 'all' : 'none',
         transition: 'opacity 0.38s ease',
       }} />
+
+      {/* Loading overlay — thread-draw + wordmark. Shown during initial load or blank transitions. */}
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 500, background: 'var(--parchment)',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        opacity: showLoading ? 1 : 0, pointerEvents: showLoading ? 'all' : 'none',
+        transition: 'opacity 0.4s ease',
+      }}>
+        <div className="loading-thread" style={{ width: '100%', height: 1, background: 'var(--gold)', position: 'absolute', top: '50%' }} />
+        <div className="loading-wm" style={{
+          position: 'absolute', top: 'calc(50% + 20px)',
+          fontFamily: "'Zen Old Mincho', serif", fontSize: 13,
+          color: 'var(--ink)', opacity: 0.4, letterSpacing: '0.38em', textTransform: 'uppercase',
+        }}>Haiku</div>
+      </div>
 
       {/* Depth push exit — departing card (full content) scales/fades out while new card slides in beneath */}
       {depthState && (
@@ -921,21 +925,6 @@ export default function Home() {
         }}>
           {timelinePosition} of {placeHaikus.length}
         </div>
-      )}
-
-      {/* Journey exit button — only shown during a place-specific journey from map */}
-      {appReady && isPlaceJourney && (
-        <button className="jexit-btn" onClick={exitJourney} style={{
-          position: 'fixed', left: 36, bottom: 30, zIndex: 20,
-          background: 'none', border: 'none', padding: '8px 0', cursor: 'pointer',
-          fontFamily: "'Shippori Mincho', serif", fontSize: 10, color: 'var(--ink-soft)',
-          letterSpacing: '0.18em', textTransform: 'uppercase', opacity: 0.5,
-          display: 'flex', alignItems: 'center', gap: 6,
-          minHeight: 44,
-        }}>
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-          all haikus
-        </button>
       )}
 
       {/* Toast */}
