@@ -250,6 +250,6 @@ body::after {
 
 /* ── LOADING OVERLAY — wandering path draw ── */
 @keyframes path-draw {
-  from { stroke-dashoffset: 2000; }
+  from { stroke-dashoffset: 3000; }
   to   { stroke-dashoffset: 0; }
 }
