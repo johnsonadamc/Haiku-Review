@@ -64,8 +64,6 @@ type _getCityRef = typeof getCity;
 
 const BRIDGES = ['the thread continues', 'another voice, same sky', 'silence answered', 'the mood deepens', 'worlds apart, same ache'];
 
-const LOADING_PHRASES = ['threading a path', 'finding the thread', 'following the thread', 'a path is forming'];
-
 const THREAD_COLORS: Record<string, string> = {
   'emotional resonance':          '#8b2a1a',
   'time of day':                  '#8a6a2a',
@@ -147,7 +145,6 @@ export default function Home() {
   const linesRef = useRef<string[]>(['', '', '']);
   const locationTextRef = useRef('');
   const authorTextRef = useRef('');
-  const loadingPhraseRef = useRef(LOADING_PHRASES[Math.floor(Math.random() * LOADING_PHRASES.length)]);
 
   // Timeline slider state
   const [placeHaikus, setPlaceHaikus] = useState<HaikuPost[]>([]);
@@ -327,12 +324,9 @@ export default function Home() {
   // Keep journeyIndexRef in sync with ci state
   useEffect(() => { journeyIndexRef.current = ci; }, [ci]);
 
-  // Remount loading overlay when a between-journey gap begins; pick a fresh phrase
+  // Remount loading overlay when a between-journey gap begins
   useEffect(() => {
-    if (journeyLoading) {
-      loadingPhraseRef.current = LOADING_PHRASES[Math.floor(Math.random() * LOADING_PHRASES.length)];
-      setOverlayMounted(true);
-    }
+    if (journeyLoading) setOverlayMounted(true);
   }, [journeyLoading]);
 
   // Fetch all haikus at the current journey post's place when place changes.
@@ -701,7 +695,7 @@ export default function Home() {
                  C 145,402 78,390 52,442
                  C 30,482 58,535 132,556
                  C 200,574 295,562 360,528
-                 C 398,505 415,542 392,580"
+                 C 398,505 415,542 450,650"
               stroke="#8a6a2a"
               strokeWidth="1.5"
               fill="none"
@@ -709,7 +703,7 @@ export default function Home() {
               strokeLinejoin="round"
               style={{ strokeDasharray: 3000, strokeDashoffset: 3000, animation: 'path-draw 6s linear forwards' }}
             />
-            {/* Burning tip — bright amber glow at the leading edge */}
+            {/* Burning tip — terracotta glow at the leading edge */}
             <path
               d="M 60,80
                  C 145,35 295,55 355,120
@@ -722,8 +716,8 @@ export default function Home() {
                  C 145,402 78,390 52,442
                  C 30,482 58,535 132,556
                  C 200,574 295,562 360,528
-                 C 398,505 415,542 392,580"
-              stroke="#f5d980"
+                 C 398,505 415,542 450,650"
+              stroke="#c4522a"
               strokeWidth={3}
               fill="none"
               strokeLinecap="round"
@@ -733,19 +727,6 @@ export default function Home() {
               style={{ strokeDasharray: '30 2970', strokeDashoffset: 3000, animation: 'path-draw 6s linear forwards' }}
             />
           </svg>
-          {/* Phrase — fades in after 1200ms, picked fresh on each mount */}
-          <div style={{
-            position: 'absolute', bottom: '20%', left: 0, right: 0,
-            textAlign: 'center',
-            fontFamily: "'Shippori Mincho', serif",
-            fontSize: 13,
-            color: 'var(--ink-faint)',
-            letterSpacing: '0.25em',
-            textTransform: 'uppercase',
-            animation: 'phrase-fade 600ms ease 1200ms both',
-          }}>
-            {loadingPhraseRef.current}
-          </div>
         </div>
       )}
 
