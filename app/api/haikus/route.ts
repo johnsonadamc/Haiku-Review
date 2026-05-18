@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
     }).select().single();
     if (haikuError) throw haikuError;
 
-    await supabase.rpc('increment_haiku_count', { place_id: place.id });
+    await supabase.rpc('increment_haiku_count', { p_place_id: place.id });
 
     // one previous haiku from same place for the post-submit moment
     const { data: prevHaikus } = await supabase.from('haikus')
