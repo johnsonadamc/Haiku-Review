@@ -64,6 +64,35 @@ type _getCityRef = typeof getCity;
 
 const BRIDGES = ['the thread continues', 'another voice, same sky', 'silence answered', 'the mood deepens', 'worlds apart, same ache'];
 
+// 12 distinct loading paths — cycled sequentially, never repeated back-to-back.
+// All paths use cubic bezier C commands only. ViewBox 0 0 400 600.
+const LOADING_PATHS: string[] = [
+  // 0: River — lazy S from top-left, drifts right, exits bottom-right
+  'M 20,60 C 100,20 230,90 260,170 C 290,250 240,330 280,400 C 320,470 420,455 440,540 C 450,585 440,615 450,660',
+  // 1: Loop — left-center, broad loop through middle, exits right
+  'M 10,280 C 80,195 210,165 290,200 C 370,235 405,325 340,395 C 275,465 145,460 95,390 C 45,320 95,235 205,248 C 305,260 395,300 450,340',
+  // 2: Spiral drift — top-center, loose clockwise spiral, exits bottom-left
+  'M 210,10 C 315,30 375,115 330,200 C 285,285 165,305 125,248 C 85,190 125,105 210,105 C 290,105 355,180 310,260 C 265,340 155,358 105,315 C 55,272 25,365 10,465 C -5,545 -10,595 -20,645',
+  // 3: Mountain — bottom-left, arcs to near top, descends, exits bottom-right
+  'M 30,580 C 70,455 115,325 175,215 C 235,105 315,45 335,70 C 355,95 365,175 320,275 C 275,375 205,455 248,535 C 278,590 365,605 450,645',
+  // 4: Wander — top-right, drifts unpredictably left and right, exits bottom-left
+  'M 380,20 C 305,68 195,58 165,130 C 135,202 210,262 158,322 C 106,382 25,370 48,442 C 71,514 185,522 142,592 C 118,633 45,642 -20,665',
+  // 5: Return — starts left, travels far right, curves back, exits left side lower
+  'M 10,160 C 105,98 255,88 348,152 C 435,212 465,315 380,385 C 295,455 155,452 75,398 C 25,362 18,432 -20,532',
+  // 6: Diagonal — broad sweeping diagonal, two gentle curves, top-left to bottom-right
+  'M 20,20 C 115,72 162,172 222,222 C 282,272 365,252 385,335 C 405,415 362,495 402,562 C 422,602 448,628 452,645',
+  // 7: Drift up — starts bottom-center, meanders upward with side-to-side curves, exits top
+  'M 200,590 C 272,542 335,468 282,408 C 228,348 125,358 148,288 C 172,218 285,198 262,128 C 238,58 148,28 138,-20',
+  // 8: Figure — loose figure-8 across the screen, exits bottom-right
+  'M 40,40 C 155,8 318,62 322,152 C 326,242 195,292 178,220 C 162,148 252,98 325,142 C 395,182 412,282 342,342 C 272,402 148,402 138,472 C 128,538 202,578 292,598 C 362,612 422,618 452,642',
+  // 9: Coastal — top-right, hugs right edge with irregular curves, exits bottom-right
+  'M 370,20 C 422,72 442,142 390,202 C 338,262 278,272 312,342 C 342,412 422,422 412,492 C 402,556 328,572 355,628 C 372,662 422,668 452,685',
+  // 10: Cross — starts left-center, curves to top-right, back down to bottom-right
+  'M -10,300 C 72,228 185,148 272,118 C 362,88 422,122 402,202 C 382,282 268,302 248,382 C 228,462 302,522 382,548 C 422,560 452,570 462,582',
+  // 11: Meander — bottom-left, crosses the screen three times, exits top-right
+  'M 20,580 C 82,542 205,512 272,450 C 338,388 318,308 228,278 C 138,248 48,288 68,218 C 88,148 222,128 302,170 C 362,202 382,272 308,322 C 235,372 115,362 108,290 C 100,218 192,168 282,148 C 362,130 432,88 452,-20',
+];
+
 const THREAD_COLORS: Record<string, string> = {
   'emotional resonance':          '#8b2a1a',
   'time of day':                  '#8a6a2a',
@@ -145,6 +174,9 @@ export default function Home() {
   const linesRef = useRef<string[]>(['', '', '']);
   const locationTextRef = useRef('');
   const authorTextRef = useRef('');
+  // Loading path index — cycles sequentially through LOADING_PATHS on each overlay mount.
+  // Initialized randomly so users see variety across sessions.
+  const loadingPathRef = useRef(Math.floor(Math.random() * LOADING_PATHS.length));
   // Timeline slider state
   const [placeHaikus, setPlaceHaikus] = useState<HaikuPost[]>([]);
   const [placeHaikuIndex, setPlaceHaikuIndex] = useState(0);
@@ -240,12 +272,13 @@ export default function Home() {
       triggerReveal();
     };
 
-    // Animation gate: 4s so the 800ms fade-out completes as the 6s path finishes drawing.
+    // Animation gate: 2s minimum before content can reveal.
+    // Path-draw animation is 6s but overlay fades out underneath it — looks natural.
     // Immediate in QR/place-mode — no animation wait.
     const animTimer = placeParam ? null : setTimeout(() => {
       state.animComplete = true;
       tryReveal();
-    }, 4000);
+    }, 2000);
 
     // Data fetch fires immediately — not gated on animation or any timer.
     fetch('/api/haikus')
@@ -327,6 +360,13 @@ export default function Home() {
   useEffect(() => {
     if (journeyLoading) setOverlayMounted(true);
   }, [journeyLoading]);
+
+  // Advance to next path each time the overlay mounts so no two consecutive loads look the same.
+  // Runs after render — current path is already shown; next mount picks up the incremented index.
+  useEffect(() => {
+    if (!overlayMounted) return;
+    loadingPathRef.current = (loadingPathRef.current + 1) % LOADING_PATHS.length;
+  }, [overlayMounted]);
 
   // Fetch all haikus at the current journey post's place when place changes.
   // Cache by place_id — only fetches on place change, uses cache for same-place navigation.
@@ -670,7 +710,8 @@ export default function Home() {
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' }}
           >
             <path
-              d="M 60,80 C 145,35 295,55 355,120 C 405,165 398,230 320,265 C 248,298 148,298 88,272 C 32,248 18,195 55,152 C 88,112 165,100 238,125 C 308,148 358,200 348,272 C 338,335 285,372 212,388 C 145,402 78,390 52,442 C 30,482 58,535 132,556 C 200,574 295,562 360,528 C 398,505 415,542 450,650"
+              d={LOADING_PATHS[loadingPathRef.current]}
+              suppressHydrationWarning
               stroke="#8a6a2a"
               strokeWidth="1.5"
               fill="none"
