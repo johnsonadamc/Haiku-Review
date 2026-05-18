@@ -50,20 +50,6 @@ body::after {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(30,26,20,0.12); }
 
-/* ── ATMOSPHERIC OPEN RULE ── */
-@keyframes rule-draw {
-  from { width: 0; }
-  to   { width: 100vw; }
-}
-@keyframes rule-fade {
-  from { opacity: 1; }
-  to   { opacity: 0; }
-}
-.open-rule {
-  animation:
-    rule-draw 0.8s cubic-bezier(0.25, 0.1, 0.25, 1) forwards,
-    rule-fade 0.4s ease 0.8s forwards;
-}
 
 /* ── HOLD RIPPLE ── */
 @keyframes ripout {
@@ -248,8 +234,3 @@ body::after {
   }
 }
 
-/* ── LOADING OVERLAY — wandering path draw ── */
-@keyframes path-draw {
-  from { stroke-dashoffset: 3000; }
-  to   { stroke-dashoffset: 0; }
-}
