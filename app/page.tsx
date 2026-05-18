@@ -673,16 +673,29 @@ export default function Home() {
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' }}
             preserveAspectRatio="xMidYMid meet"
           >
-            <defs>
-              <filter id="tip-glow" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
-                <feMerge>
-                  <feMergeNode in="blur"/>
-                  <feMergeNode in="SourceGraphic"/>
-                </feMerge>
-              </filter>
-            </defs>
-            {/* Main trail — gold */}
+            {/* Path 1 — soft base glow */}
+            <path
+              d="M 60,80
+                 C 145,35 295,55 355,120
+                 C 405,165 398,230 320,265
+                 C 248,298 148,298 88,272
+                 C 32,248 18,195 55,152
+                 C 88,112 165,100 238,125
+                 C 308,148 358,200 348,272
+                 C 338,335 285,372 212,388
+                 C 145,402 78,390 52,442
+                 C 30,482 58,535 132,556
+                 C 200,574 295,562 360,528
+                 C 398,505 415,542 450,650"
+              stroke="#8a6a2a"
+              strokeWidth={3}
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity={0.35}
+              style={{ strokeDasharray: 3000, strokeDashoffset: 3000, animation: 'path-draw 6s linear forwards' }}
+            />
+            {/* Path 2 — main bright line */}
             <path
               d="M 60,80
                  C 145,35 295,55 355,120
@@ -703,7 +716,7 @@ export default function Home() {
               strokeLinejoin="round"
               style={{ strokeDasharray: 3000, strokeDashoffset: 3000, animation: 'path-draw 6s linear forwards' }}
             />
-            {/* Burning tip — terracotta glow at the leading edge */}
+            {/* Path 3 — hot leading segment */}
             <path
               d="M 60,80
                  C 145,35 295,55 355,120
@@ -718,13 +731,34 @@ export default function Home() {
                  C 200,574 295,562 360,528
                  C 398,505 415,542 450,650"
               stroke="#c4522a"
-              strokeWidth={3}
+              strokeWidth={2.5}
               fill="none"
               strokeLinecap="round"
               strokeLinejoin="round"
-              filter="url(#tip-glow)"
               opacity={0.9}
-              style={{ strokeDasharray: '30 2970', strokeDashoffset: 3000, animation: 'path-draw 6s linear forwards' }}
+              style={{ strokeDasharray: '80 2920', strokeDashoffset: 3000, animation: 'path-draw 6s linear forwards' }}
+            />
+            {/* Path 4 — bright hot point at very tip */}
+            <path
+              d="M 60,80
+                 C 145,35 295,55 355,120
+                 C 405,165 398,230 320,265
+                 C 248,298 148,298 88,272
+                 C 32,248 18,195 55,152
+                 C 88,112 165,100 238,125
+                 C 308,148 358,200 348,272
+                 C 338,335 285,372 212,388
+                 C 145,402 78,390 52,442
+                 C 30,482 58,535 132,556
+                 C 200,574 295,562 360,528
+                 C 398,505 415,542 450,650"
+              stroke="#f0d0b0"
+              strokeWidth={2}
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity={0.95}
+              style={{ strokeDasharray: '12 2988', strokeDashoffset: 3000, animation: 'path-draw 6s linear forwards' }}
             />
           </svg>
         </div>
