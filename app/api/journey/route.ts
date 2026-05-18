@@ -33,14 +33,19 @@ export async function POST(req: NextRequest) {
   try {
     const prompt = `Curate a poetic journey through these haikus connected by "${threadType}". Start near "${placeName || 'any'}". Data: ${JSON.stringify(data)}. Return ${n} IDs ordered by this theme. For each after the first, write a 5-8 word poetic bridge. JSON only: {"type":"${threadType}","seq":[ids...],"conn":["","bridge",...]} IDs: [${data.map(x => JSON.stringify(x.id)).join(',')}]. Exactly ${n} IDs, exactly ${n} conn strings, first always "".`;
 
-    const message = await client.messages.create({
+    const anthropicCall = client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 800,
+      max_tokens: 300,
       system: 'You are a JSON API. Respond with ONLY valid JSON. No markdown, no explanation, no backticks.',
       messages: [{ role: 'user', content: prompt }],
     });
 
-    const txt = (message.content[0].type === 'text' ? message.content[0].text : '')
+    const timeoutPromise = new Promise<null>(resolve => setTimeout(() => resolve(null), 2000));
+    const result = await Promise.race([anthropicCall, timeoutPromise]);
+
+    if (!result) throw new Error('timeout');
+
+    const txt = (result.content[0].type === 'text' ? result.content[0].text : '')
       .replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '').trim();
     const parsed = JSON.parse(txt);
     if (!parsed.seq || !Array.isArray(parsed.seq)) throw new Error('invalid response');

@@ -147,6 +147,7 @@ async function buildJourneyFromPool(haikus: HaikuPost[], placeName?: string): Pr
 export default function Home() {
   const [posts, setPosts] = useState<HaikuPost[]>([]);
   const [ci, setCi] = useState(0);
+  const [clientReady, setClientReady] = useState(false); // prevents SSR-rendered overlay (eliminates path flash)
   const [appReady, setAppReady] = useState(false);
   const [qrMode, setQrMode] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -368,6 +369,10 @@ export default function Home() {
     loadingPathRef.current = (loadingPathRef.current + 1) % LOADING_PATHS.length;
   }, [overlayMounted]);
 
+  // Gate the loading overlay to client-only — prevents SSR rendering the SVG path and
+  // avoids the hydration mismatch flash caused by the random path index.
+  useEffect(() => { setClientReady(true); }, []);
+
   // Fetch all haikus at the current journey post's place when place changes.
   // Cache by place_id — only fetches on place change, uses cache for same-place navigation.
   const journeyPost = journey ? journey.seq[ci] : undefined;
@@ -529,6 +534,7 @@ export default function Home() {
   //   ArrowLeft/Right also allowed in timeline mode only when at the most-recent (journey) haiku
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (!appReady || journeyLoading || overlayMounted) return;
       if (e.key === 'ArrowRight') {
         navigate(1);
       } else if (e.key === 'ArrowLeft') {
@@ -543,7 +549,7 @@ export default function Home() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [navigate, navigateTimeline, inTimelineMode, placeHaikuIndex, placeHaikus.length]);
+  }, [appReady, journeyLoading, overlayMounted, navigate, navigateTimeline, inTimelineMode, placeHaikuIndex, placeHaikus.length]);
 
   // Swipe nav — whole-screen gestures with horizontal/vertical intent split:
   //   Horizontal (|dx| > |dy|): journey nav. Blocked in timeline unless at most-recent haiku.
@@ -557,6 +563,7 @@ export default function Home() {
       startY = e.touches[0].clientY;
     };
     const onEnd = (e: TouchEvent) => {
+      if (!appReady || journeyLoading || overlayMounted) return;
       if (startX === null || startY === null) return;
       const dx = e.changedTouches[0].clientX - startX;
       const dy = e.changedTouches[0].clientY - startY;
@@ -578,7 +585,7 @@ export default function Home() {
       window.removeEventListener('touchstart', onStart);
       window.removeEventListener('touchend', onEnd);
     };
-  }, [navigate, navigateTimeline, inTimelineMode, placeHaikuIndex, placeHaikus.length, mapOpen]);
+  }, [appReady, journeyLoading, overlayMounted, navigate, navigateTimeline, inTimelineMode, placeHaikuIndex, placeHaikus.length, mapOpen]);
 
   // hold mechanic
   const fireRipple = useCallback(() => {
@@ -688,8 +695,8 @@ export default function Home() {
         transition: 'opacity 0.38s ease',
       }} />
 
-      {/* Loading overlay — lazy looping SVG path. Initial load and between-journey gaps only. */}
-      {overlayMounted && (
+      {/* Loading overlay — client-only to prevent SSR path flash. Initial load and between-journey gaps. */}
+      {clientReady && overlayMounted && (
         <div
           style={{
             position: 'fixed', inset: 0, zIndex: 50,
