@@ -578,8 +578,8 @@ export default function Home() {
   // Map dot click: build a place-seeded journey; exit restores the global one
   const handlePlaceClick = useCallback(async (place: { id: string; name: string; city: string; google_place_id: string }) => {
     setMapOpen(false);
-    setIsTransitioning(true);
-    setWipeActive(true);
+    setJourneyLoading(true);
+    setOverlayMounted(true);
     try {
       const j = await buildJourneyFromPool(posts, place.name);
 
@@ -603,12 +603,10 @@ export default function Home() {
       setThreadType(j.type);
       setJourney(j);
       setCi(0);
-      setWipeActive(false);
-      setTimeout(() => setIsTransitioning(false), 420);
+      setJourneyLoading(false);
       triggerReveal();
     } catch {
-      setWipeActive(false);
-      setTimeout(() => setIsTransitioning(false), 420);
+      setJourneyLoading(false);
     }
   }, [posts, triggerReveal]);
 
