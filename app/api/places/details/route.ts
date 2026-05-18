@@ -8,12 +8,20 @@ export async function GET(req: NextRequest) {
   if (!apiKey) return NextResponse.json({ lat: null, lng: null });
 
   try {
-    const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(placeId)}&fields=geometry&key=${apiKey}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    const loc = data.result?.geometry?.location;
-    if (!loc) return NextResponse.json({ lat: null, lng: null });
-    return NextResponse.json({ lat: loc.lat, lng: loc.lng });
+    const res = await fetch(`https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`, {
+      headers: {
+        'X-Goog-Api-Key': apiKey,
+        'X-Goog-FieldMask': 'id,displayName,formattedAddress,location,shortFormattedAddress',
+      },
+    });
+    const result = await res.json();
+    if (!result.location) return NextResponse.json({ lat: null, lng: null });
+    return NextResponse.json({
+      lat: result.location.latitude,
+      lng: result.location.longitude,
+      name: result.displayName?.text || '',
+      formatted_address: result.formattedAddress || '',
+    });
   } catch {
     return NextResponse.json({ lat: null, lng: null });
   }

@@ -8,16 +8,28 @@ export async function GET(req: NextRequest) {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
   if (apiKey) {
     try {
-      const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(q)}&key=${apiKey}&types=establishment|geocode`;
-      const res = await fetch(url);
+      const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': apiKey,
+          'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.shortFormattedAddress',
+        },
+        body: JSON.stringify({ textQuery: q }),
+      });
       const data = await res.json();
-      if (data.predictions) {
+      if (data.places) {
         return NextResponse.json({
-          results: data.predictions.slice(0, 6).map((p: { description: string; place_id: string; structured_formatting?: { main_text?: string; secondary_text?: string } }) => ({
-            n: p.structured_formatting?.main_text || p.description,
-            c: p.structured_formatting?.secondary_text || '',
-            place_id: p.place_id,
-          }))
+          results: data.places.slice(0, 8).map((place: {
+            id: string;
+            displayName?: { text?: string };
+            formattedAddress?: string;
+            shortFormattedAddress?: string;
+          }) => ({
+            place_id: place.id,
+            n: place.displayName?.text || '',
+            c: place.shortFormattedAddress || place.formattedAddress || '',
+          })),
         });
       }
     } catch {}
