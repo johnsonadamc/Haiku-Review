@@ -211,9 +211,9 @@ export default function Home() {
     t(1540, () => setShowAuthor(true));
   }, [clearRevealTimers]);
 
-  // Atmospheric open: fetch haikus + build initial journey, then reveal after rule animation.
-  // QR/place-mode (?place=<google_place_id>): skips the rule animation, shows first 3 haikus
-  // from that place as an intro, then pre-builds a seeded AI journey for seamless continuation.
+  // Initial load: fetch haikus and build journey in parallel with the loading animation.
+  // setAppReady fires only when BOTH are done — whichever finishes last.
+  // QR/place-mode skips the animation wait so content shows as soon as data arrives.
   useEffect(() => {
     const stored = JSON.parse(localStorage.getItem('hr_held') || '[]');
     setHeldSet(new Set(stored));
@@ -229,12 +229,26 @@ export default function Home() {
     }
     if (placeParam) setQrMode(true);
 
-    // Skip the 1200ms atmospheric rule wait in QR/place-mode
-    const ruleReady = placeParam
-      ? Promise.resolve()
-      : new Promise<void>(resolve => setTimeout(resolve, 1200));
+    // Two flags — reveal fires when both are true.
+    const state = { animComplete: !!placeParam, journey: null as Journey | null };
+    const tryReveal = () => {
+      if (!state.animComplete || !state.journey) return;
+      const j = state.journey;
+      globalJourneyRef.current = j;
+      setJourney(j);
+      setCi(0);
+      setAppReady(true);
+      triggerReveal();
+    };
 
-    const dataReady: Promise<Journey> = fetch('/api/haikus')
+    // Animation gate: 6s to match the SVG path draw duration; immediate in QR/place-mode.
+    const animTimer = placeParam ? null : setTimeout(() => {
+      state.animComplete = true;
+      tryReveal();
+    }, 6000);
+
+    // Data fetch fires immediately — not gated on animation or any timer.
+    fetch('/api/haikus')
       .then(r => r.json())
       .then(async (d) => {
         const haikus: HaikuPost[] = d.haikus?.length ? d.haikus : SEED_POSTS;
@@ -262,14 +276,15 @@ export default function Home() {
                   conn: introHaikus.map((_, i) => i === 0 ? '' : BRIDGES[Math.min(i - 1, BRIDGES.length - 1)]),
                   type: 'threshold moments',
                 };
-                // Pre-build the seeded AI journey — loaded into nextJourneyRef so advanceJourney
-                // picks it up seamlessly when the user swipes past the last intro haiku.
+                // Pre-build the seeded AI journey — picked up seamlessly at end of intro.
                 journeyBuildingRef.current = true;
                 buildJourneyFromPool(haikus, placeData.name).then(j => {
                   nextJourneyRef.current = j;
                   journeyBuildingRef.current = false;
                 });
-                return introJourney;
+                state.journey = introJourney;
+                tryReveal();
+                return;
               }
             }
           } catch { /* fall through to normal journey */ }
@@ -277,18 +292,20 @@ export default function Home() {
 
         return buildJourneyFromPool(haikus);
       })
-      .catch(async () => {
+      .then(j => {
+        if (!j) return; // QR path already called tryReveal above
+        state.journey = j;
+        tryReveal();
+      })
+      .catch(() => {
         setPosts(SEED_POSTS);
-        return buildJourneyFromPool(SEED_POSTS);
+        buildJourneyFromPool(SEED_POSTS).then(j => {
+          state.journey = j;
+          tryReveal();
+        });
       });
 
-    Promise.all([dataReady, ruleReady]).then(([j]) => {
-      globalJourneyRef.current = j;
-      setJourney(j);
-      setCi(0);
-      setAppReady(true);
-      triggerReveal();
-    });
+    return () => { if (animTimer) clearTimeout(animTimer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -678,20 +695,20 @@ export default function Home() {
                 style={{ strokeDasharray: 3000, strokeDashoffset: 3000, animation: 'path-draw 6s linear forwards' }}
               />
             ) : (
-              // Initial load route — loop in upper half, broad arc back before continuing lower
+              // Initial load route — same path as between-journey
               <path
-                d="M 35,50
-                   C 130,10 290,25 360,90
-                   C 415,140 405,200 335,240
-                   C 265,278 155,282 80,252
-                   C 22,226 8,172 38,128
-                   C 65,87 145,76 215,102
-                   C 285,130 342,178 338,248
-                   C 333,308 282,348 208,366
-                   C 140,382 68,368 42,422
-                   C 22,462 48,514 122,537
-                   C 192,558 288,546 355,508
-                   C 395,482 412,520 388,562"
+                d="M 60,80
+                   C 145,35 295,55 355,120
+                   C 405,165 398,230 320,265
+                   C 248,298 148,298 88,272
+                   C 32,248 18,195 55,152
+                   C 88,112 165,100 238,125
+                   C 308,148 358,200 348,272
+                   C 338,335 285,372 212,388
+                   C 145,402 78,390 52,442
+                   C 30,482 58,535 132,556
+                   C 200,574 295,562 360,528
+                   C 398,505 415,542 392,580"
                 stroke="#8a6a2a"
                 strokeWidth="1.5"
                 fill="none"
