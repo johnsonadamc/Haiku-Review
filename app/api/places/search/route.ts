@@ -28,7 +28,13 @@ export async function GET(req: NextRequest) {
           }) => ({
             place_id: place.id,
             n: place.displayName?.text || '',
-            c: place.shortFormattedAddress || place.formattedAddress || '',
+            c: (() => {
+              const short = (place.shortFormattedAddress || '').trim();
+              if (short) return short;
+              const full = place.formattedAddress || '';
+              const comma = full.indexOf(',');
+              return comma >= 0 ? full.slice(comma + 1).trim() : full.trim();
+            })(),
           })),
         });
       }
