@@ -18,6 +18,7 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onPlaceSelect: (place: { id: string; name: string; city: string; google_place_id: string }) => void;
+  onTooltipOpen?: (place: { id: string; name: string }) => void;
   currentPlace?: { lat: number; lng: number; name: string };
 };
 
@@ -31,14 +32,16 @@ function haversineDistanceMiles(lat1: number, lng1: number, lat2: number, lng2: 
   return R * 2 * Math.asin(Math.sqrt(a));
 }
 
-export default function MapOverlay({ open, onClose, onPlaceSelect, currentPlace }: Props) {
+export default function MapOverlay({ open, onClose, onPlaceSelect, onTooltipOpen, currentPlace }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<MapLibreMarker[]>([]);
 
-  // Stable ref to the callback — always current, safe to call from DOM handlers
+  // Stable refs to callbacks — always current, safe to call from DOM handlers
   const onPlaceSelectRef = useRef(onPlaceSelect);
   onPlaceSelectRef.current = onPlaceSelect;
+  const onTooltipOpenRef = useRef(onTooltipOpen);
+  onTooltipOpenRef.current = onTooltipOpen;
   const currentPlaceRef = useRef(currentPlace);
   currentPlaceRef.current = currentPlace;
   // Mirror of places state — always current, safe to read from DOM event handlers
@@ -190,6 +193,7 @@ export default function MapOverlay({ open, onClose, onPlaceSelect, currentPlace 
           tooltipXRef.current = rect.left + rect.width / 2;
           tooltipYRef.current = rect.top;
           setSelectedPlace(found);
+          onTooltipOpenRef.current?.({ id: found.id, name: found.name });
         });
 
         const marker = new maplibregl.Marker({ element: touchEl, anchor: 'center' })
