@@ -126,6 +126,8 @@ export default function Home() {
   const [submitOpen, setSubmitOpen] = useState(false);
   const [yourHaikusOpen, setYourHaikusOpen] = useState(false);
   const [journey, setJourney] = useState<Journey | null>(null);
+  const [journeyLoading, setJourneyLoading] = useState(false);
+  const [overlayMounted, setOverlayMounted] = useState(true); // starts true; unmounted after initial-load fade
 
   // The current global (full-pool) journey — restored when exiting a place journey
   const globalJourneyRef = useRef<Journey | null>(null);
@@ -304,6 +306,11 @@ export default function Home() {
   // Keep journeyIndexRef in sync with ci state
   useEffect(() => { journeyIndexRef.current = ci; }, [ci]);
 
+  // Remount loading overlay when a between-journey gap begins (was unmounted after initial-load fade)
+  useEffect(() => {
+    if (journeyLoading) setOverlayMounted(true);
+  }, [journeyLoading]);
+
   // Fetch all haikus at the current journey post's place when place changes.
   // Cache by place_id — only fetches on place change, uses cache for same-place navigation.
   const journeyPost = journey ? journey.seq[ci] : undefined;
@@ -408,7 +415,7 @@ export default function Home() {
         doNavigate(0, '', newJ.type, direction);
       } else {
         setIsTransitioning(true);
-        setWipeActive(true);
+        setJourneyLoading(true);
         const poll = () => {
           if (nextJourneyRef.current) {
             const newJ = nextJourneyRef.current;
@@ -417,7 +424,7 @@ export default function Home() {
             setJourney(newJ);
             setCi(0);
             journeyIndexRef.current = 0;
-            setWipeActive(false);
+            setJourneyLoading(false);
             triggerReveal();
             setTimeout(() => setIsTransitioning(false), 420);
           } else {
@@ -605,9 +612,6 @@ export default function Home() {
 
   const journeyProgress = journey ? ((ci + 1) / journey.seq.length * 100) : 0;
 
-  // Show loading overlay during initial app load or when transitioning without a haiku to display
-  const showLoading = !appReady || (isTransitioning && !currentPost);
-
   // Slider visible when the current place has 2+ haikus and app is ready
   const sliderVisible = appReady && placeHaikus.length >= 2;
 
@@ -629,20 +633,54 @@ export default function Home() {
         transition: 'opacity 0.38s ease',
       }} />
 
-      {/* Loading overlay — thread-draw + wordmark. Shown during initial load or blank transitions. */}
-      <div style={{
-        position: 'fixed', inset: 0, zIndex: 500, background: 'var(--parchment)',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        opacity: showLoading ? 1 : 0, pointerEvents: showLoading ? 'all' : 'none',
-        transition: 'opacity 0.4s ease',
-      }}>
-        <div className="loading-thread" style={{ width: '100%', height: 1, background: 'var(--gold)', position: 'absolute', top: '50%' }} />
-        <div className="loading-wm" style={{
-          position: 'absolute', top: 'calc(50% + 20px)',
-          fontFamily: "'Zen Old Mincho', serif", fontSize: 13,
-          color: 'var(--ink)', opacity: 0.4, letterSpacing: '0.38em', textTransform: 'uppercase',
-        }}>Haiku</div>
-      </div>
+      {/* Loading overlay — wandering SVG path. Initial load and between-journey gaps only. */}
+      {overlayMounted && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 50,
+            background: 'var(--parchment)',
+            opacity: (!appReady || journeyLoading) ? 1 : 0,
+            pointerEvents: (!appReady || journeyLoading) ? 'all' : 'none',
+            transition: 'opacity 600ms ease',
+          }}
+          onTransitionEnd={(e) => {
+            if (e.propertyName === 'opacity' && appReady && !journeyLoading) {
+              setOverlayMounted(false);
+            }
+          }}
+        >
+          <svg
+            viewBox="0 0 1200 300"
+            width="100%"
+            style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', display: 'block', overflow: 'visible' }}
+            preserveAspectRatio="xMidYMid meet"
+          >
+            {appReady ? (
+              // Between-journey path — starts slightly lower, different curve rhythm
+              <path
+                d="M -60,170 C 100,100 200,240 340,150 C 460,60 560,220 700,140 C 840,60 920,220 1080,130 C 1140,90 1200,180 1260,130"
+                stroke="#8a6a2a"
+                strokeWidth="1.5"
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{ strokeDasharray: 2000, strokeDashoffset: 2000, animation: 'path-draw 3.5s cubic-bezier(0.4, 0, 0.2, 1) forwards' }}
+              />
+            ) : (
+              // Initial load path
+              <path
+                d="M -60,150 C 80,80 160,220 300,130 C 440,40 520,200 680,120 C 840,40 900,200 1060,110 C 1120,75 1180,155 1260,100"
+                stroke="#8a6a2a"
+                strokeWidth="1.5"
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{ strokeDasharray: 2000, strokeDashoffset: 2000, animation: 'path-draw 3.5s cubic-bezier(0.4, 0, 0.2, 1) forwards' }}
+              />
+            )}
+          </svg>
+        </div>
+      )}
 
       {/* Depth push exit — departing card (full content) scales/fades out while new card slides in beneath */}
       {depthState && (
