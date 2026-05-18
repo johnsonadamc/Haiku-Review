@@ -360,13 +360,6 @@ export default function Home() {
   // Keep journeyIndexRef in sync with ci state
   useEffect(() => { journeyIndexRef.current = ci; }, [ci]);
 
-  // Advance to next path each time the overlay mounts so no two consecutive loads look the same.
-  // Runs after render — current path is already shown; next mount picks up the incremented index.
-  useEffect(() => {
-    if (!overlayMounted) return;
-    loadingPathRef.current = (loadingPathRef.current + 1) % LOADING_PATHS.length;
-  }, [overlayMounted]);
-
   // Gate the loading overlay to client-only — prevents SSR rendering the SVG path and
   // avoids the hydration mismatch flash caused by the random path index.
   useEffect(() => { setClientReady(true); }, []);
@@ -720,6 +713,7 @@ export default function Home() {
           }}
           onTransitionEnd={(e) => {
             if (e.propertyName === 'opacity' && appReady && !journeyLoading) {
+              loadingPathRef.current = (loadingPathRef.current + 1) % LOADING_PATHS.length;
               setOverlayMounted(false);
             }
           }}
