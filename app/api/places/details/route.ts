@@ -16,11 +16,15 @@ export async function GET(req: NextRequest) {
     });
     const result = await res.json();
     if (!result.location) return NextResponse.json({ lat: null, lng: null });
+    const formattedAddress = result.formattedAddress || '';
+    const comma = formattedAddress.indexOf(',');
+    const city = comma >= 0 ? formattedAddress.slice(comma + 1).trim() : '';
     return NextResponse.json({
       lat: result.location.latitude,
       lng: result.location.longitude,
       name: result.displayName?.text || '',
-      formatted_address: result.formattedAddress || '',
+      formatted_address: formattedAddress,
+      city,
     });
   } catch {
     return NextResponse.json({ lat: null, lng: null });

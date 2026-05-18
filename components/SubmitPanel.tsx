@@ -75,7 +75,7 @@ export default function SubmitPanel({ open, onClose, onSubmitted, onError, onVie
       try {
         const res = await fetch(`/api/places/details?place_id=${encodeURIComponent(p.place_id)}`);
         const geo = await res.json();
-        setPlaceData({ ...p, lat: geo.lat ?? undefined, lng: geo.lng ?? undefined });
+        setPlaceData({ ...p, lat: geo.lat ?? undefined, lng: geo.lng ?? undefined, c: p.c || geo.city || '' });
         return;
       } catch {}
     }
