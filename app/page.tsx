@@ -164,6 +164,9 @@ export default function Home() {
   // Pre-built next journey, ready to load seamlessly at end of current
   const nextJourneyRef = useRef<Journey | null>(null);
   const journeyBuildingRef = useRef(false);
+  // Pre-built journey when user opens a map dot tooltip — consumed by handlePlaceClick
+  const pendingPlaceJourneyRef = useRef<Journey | null>(null);
+  const pendingPlaceIdRef = useRef<string | null>(null);
   // Mirrors ci — lets timeline callbacks read the current journey index without stale closures
   const journeyIndexRef = useRef(0);
   // Depth push transition state — set on navigate, cleared after 420ms
@@ -357,18 +360,6 @@ export default function Home() {
   // Keep journeyIndexRef in sync with ci state
   useEffect(() => { journeyIndexRef.current = ci; }, [ci]);
 
-  // Remount loading overlay when a between-journey gap begins
-  useEffect(() => {
-    if (journeyLoading) setOverlayMounted(true);
-  }, [journeyLoading]);
-
-  // Advance to next path each time the overlay mounts so no two consecutive loads look the same.
-  // Runs after render — current path is already shown; next mount picks up the incremented index.
-  useEffect(() => {
-    if (!overlayMounted) return;
-    loadingPathRef.current = (loadingPathRef.current + 1) % LOADING_PATHS.length;
-  }, [overlayMounted]);
-
   // Gate the loading overlay to client-only — prevents SSR rendering the SVG path and
   // avoids the hydration mismatch flash caused by the random path index.
   useEffect(() => { setClientReady(true); }, []);
@@ -478,6 +469,7 @@ export default function Home() {
       } else {
         setIsTransitioning(true);
         setJourneyLoading(true);
+        setOverlayMounted(true);
         const poll = () => {
           if (nextJourneyRef.current) {
             const newJ = nextJourneyRef.current;
@@ -628,7 +620,10 @@ export default function Home() {
     setJourneyLoading(true);
     setOverlayMounted(true);
     try {
-      const j = await buildJourneyFromPool(posts, place.name);
+      const prebuilt = pendingPlaceIdRef.current === place.id ? pendingPlaceJourneyRef.current : null;
+      pendingPlaceJourneyRef.current = null;
+      pendingPlaceIdRef.current = null;
+      const j = prebuilt || await buildJourneyFromPool(posts, place.name);
 
       // Find the most recent haiku from the tapped place and force it to position 0.
       // buildJourneyFromPool passes placeName as an AI hint — not a filter — so the
@@ -656,6 +651,17 @@ export default function Home() {
       setJourneyLoading(false);
     }
   }, [posts, triggerReveal]);
+
+  // Map tooltip open: fire-and-forget pre-build so journey is ready when user taps Go
+  const handleTooltipOpen = useCallback((place: { id: string; name: string }) => {
+    pendingPlaceIdRef.current = place.id;
+    pendingPlaceJourneyRef.current = null;
+    buildJourneyFromPool(posts, place.name).then(j => {
+      if (pendingPlaceIdRef.current === place.id) {
+        pendingPlaceJourneyRef.current = j;
+      }
+    });
+  }, [posts]);
 
   const placeCount = new Set(posts.map((p: HaikuPost) => getPlace(p)).filter(Boolean)).size;
 
@@ -707,6 +713,7 @@ export default function Home() {
           }}
           onTransitionEnd={(e) => {
             if (e.propertyName === 'opacity' && appReady && !journeyLoading) {
+              loadingPathRef.current = (loadingPathRef.current + 1) % LOADING_PATHS.length;
               setOverlayMounted(false);
             }
           }}
@@ -1018,7 +1025,7 @@ export default function Home() {
       }}>{toastMsg}</div>
 
       {/* Map overlay */}
-      <MapOverlay open={mapOpen} onClose={() => setMapOpen(false)} onPlaceSelect={handlePlaceClick} currentPlace={currentPlace} />
+      <MapOverlay open={mapOpen} onClose={() => setMapOpen(false)} onPlaceSelect={handlePlaceClick} onTooltipOpen={handleTooltipOpen} currentPlace={currentPlace} />
 
       {/* Submit panel */}
       <SubmitPanel
