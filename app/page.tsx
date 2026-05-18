@@ -633,7 +633,7 @@ export default function Home() {
         transition: 'opacity 0.38s ease',
       }} />
 
-      {/* Loading overlay — wandering SVG path. Initial load and between-journey gaps only. */}
+      {/* Loading overlay — lazy looping SVG path. Initial load and between-journey gaps only. */}
       {overlayMounted && (
         <div
           style={{
@@ -641,7 +641,7 @@ export default function Home() {
             background: 'var(--parchment)',
             opacity: (!appReady || journeyLoading) ? 1 : 0,
             pointerEvents: (!appReady || journeyLoading) ? 'all' : 'none',
-            transition: 'opacity 600ms ease',
+            transition: 'opacity 800ms ease',
           }}
           onTransitionEnd={(e) => {
             if (e.propertyName === 'opacity' && appReady && !journeyLoading) {
@@ -649,33 +649,55 @@ export default function Home() {
             }
           }}
         >
+          {/* Portrait viewBox — path meanders full height and width, includes one broad loop */}
           <svg
-            viewBox="0 0 1200 300"
-            width="100%"
-            style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', display: 'block', overflow: 'visible' }}
+            viewBox="0 0 400 600"
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' }}
             preserveAspectRatio="xMidYMid meet"
           >
             {appReady ? (
-              // Between-journey path — starts slightly lower, different curve rhythm
+              // Between-journey route — loop sits lower, different rhythm through the same landscape
               <path
-                d="M -60,170 C 100,100 200,240 340,150 C 460,60 560,220 700,140 C 840,60 920,220 1080,130 C 1140,90 1200,180 1260,130"
+                d="M 60,80
+                   C 145,35 295,55 355,120
+                   C 405,165 398,230 320,265
+                   C 248,298 148,298 88,272
+                   C 32,248 18,195 55,152
+                   C 88,112 165,100 238,125
+                   C 308,148 358,200 348,272
+                   C 338,335 285,372 212,388
+                   C 145,402 78,390 52,442
+                   C 30,482 58,535 132,556
+                   C 200,574 295,562 360,528
+                   C 398,505 415,542 392,580"
                 stroke="#8a6a2a"
                 strokeWidth="1.5"
                 fill="none"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                style={{ strokeDasharray: 2000, strokeDashoffset: 2000, animation: 'path-draw 3.5s cubic-bezier(0.4, 0, 0.2, 1) forwards' }}
+                style={{ strokeDasharray: 3000, strokeDashoffset: 3000, animation: 'path-draw 6s linear forwards' }}
               />
             ) : (
-              // Initial load path
+              // Initial load route — loop in upper half, broad arc back before continuing lower
               <path
-                d="M -60,150 C 80,80 160,220 300,130 C 440,40 520,200 680,120 C 840,40 900,200 1060,110 C 1120,75 1180,155 1260,100"
+                d="M 35,50
+                   C 130,10 290,25 360,90
+                   C 415,140 405,200 335,240
+                   C 265,278 155,282 80,252
+                   C 22,226 8,172 38,128
+                   C 65,87 145,76 215,102
+                   C 285,130 342,178 338,248
+                   C 333,308 282,348 208,366
+                   C 140,382 68,368 42,422
+                   C 22,462 48,514 122,537
+                   C 192,558 288,546 355,508
+                   C 395,482 412,520 388,562"
                 stroke="#8a6a2a"
                 strokeWidth="1.5"
                 fill="none"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                style={{ strokeDasharray: 2000, strokeDashoffset: 2000, animation: 'path-draw 3.5s cubic-bezier(0.4, 0, 0.2, 1) forwards' }}
+                style={{ strokeDasharray: 3000, strokeDashoffset: 3000, animation: 'path-draw 6s linear forwards' }}
               />
             )}
           </svg>
