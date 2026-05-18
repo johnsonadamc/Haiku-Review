@@ -145,9 +145,6 @@ export default function Home() {
   const linesRef = useRef<string[]>(['', '', '']);
   const locationTextRef = useRef('');
   const authorTextRef = useRef('');
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const canvasAnimRef = useRef<number | null>(null);
-
   // Timeline slider state
   const [placeHaikus, setPlaceHaikus] = useState<HaikuPost[]>([]);
   const [placeHaikuIndex, setPlaceHaikuIndex] = useState(0);
@@ -330,104 +327,6 @@ export default function Home() {
   useEffect(() => {
     if (journeyLoading) setOverlayMounted(true);
   }, [journeyLoading]);
-
-  // Canvas loading animation — runs whenever the overlay is mounted (initial load + between-journey gaps).
-  useEffect(() => {
-    if (!overlayMounted) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const scaleX = w / 400;
-    const scaleY = h / 600;
-
-    // 11 cubic bezier segments matching the SVG path
-    const segs = [
-      {x0:60,  y0:80,  x1:145, y1:35,  x2:295, y2:55,  x3:355, y3:120},
-      {x0:355, y0:120, x1:405, y1:165, x2:398, y2:230, x3:320, y3:265},
-      {x0:320, y0:265, x1:248, y1:298, x2:148, y2:298, x3:88,  y3:272},
-      {x0:88,  y0:272, x1:32,  y1:248, x2:18,  y2:195, x3:55,  y3:152},
-      {x0:55,  y0:152, x1:88,  y1:112, x2:165, y2:100, x3:238, y3:125},
-      {x0:238, y0:125, x1:308, y1:148, x2:358, y2:200, x3:348, y3:272},
-      {x0:348, y0:272, x1:338, y1:335, x2:285, y2:372, x3:212, y3:388},
-      {x0:212, y0:388, x1:145, y1:402, x2:78,  y2:390, x3:52,  y3:442},
-      {x0:52,  y0:442, x1:30,  y1:482, x2:58,  y2:535, x3:132, y3:556},
-      {x0:132, y0:556, x1:200, y1:574, x2:295, y2:562, x3:360, y3:528},
-      {x0:360, y0:528, x1:398, y1:505, x2:415, y2:542, x3:450, y3:650},
-    ];
-
-    const getPointAtT = (seg: typeof segs[0], t: number) => {
-      const mt = 1 - t;
-      return {
-        x: (mt*mt*mt*seg.x0 + 3*mt*mt*t*seg.x1 + 3*mt*t*t*seg.x2 + t*t*t*seg.x3) * scaleX,
-        y: (mt*mt*mt*seg.y0 + 3*mt*mt*t*seg.y1 + 3*mt*t*t*seg.y2 + t*t*t*seg.y3) * scaleY,
-      };
-    };
-
-    // Pre-compute 300 evenly-spaced sample points
-    const SAMPLES = 300;
-    const points: {x: number; y: number}[] = [];
-    for (let i = 0; i < SAMPLES; i++) {
-      const progress = i / (SAMPLES - 1);
-      const segIndex = Math.min(Math.floor(progress * segs.length), segs.length - 1);
-      const t = (progress * segs.length) - segIndex;
-      points.push(getPointAtT(segs[segIndex], t));
-    }
-
-    const startTime = Date.now();
-    const DURATION = 6000;
-
-    const draw = () => {
-      const elapsed = Date.now() - startTime;
-      const prog = Math.min(elapsed / DURATION, 1);
-      const endIdx = Math.floor(prog * (SAMPLES - 1));
-
-      ctx.clearRect(0, 0, w, h);
-
-      // Trail
-      if (endIdx > 0) {
-        ctx.beginPath();
-        ctx.moveTo(points[0].x, points[0].y);
-        for (let i = 1; i <= endIdx; i++) {
-          ctx.lineTo(points[i].x, points[i].y);
-        }
-        ctx.strokeStyle = '#8a6a2a';
-        ctx.lineWidth = 1.8;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.globalAlpha = 0.7;
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-
-        // Radial gradient glow at tip
-        const tip = points[endIdx];
-        const grad = ctx.createRadialGradient(tip.x, tip.y, 0, tip.x, tip.y, 32);
-        grad.addColorStop(0,    'rgba(255, 248, 235, 0.98)');
-        grad.addColorStop(0.25, 'rgba(210, 95, 45, 0.85)');
-        grad.addColorStop(0.6,  'rgba(160, 110, 40, 0.4)');
-        grad.addColorStop(1,    'rgba(138, 106, 42, 0)');
-        ctx.beginPath();
-        ctx.arc(tip.x, tip.y, 32, 0, Math.PI * 2);
-        ctx.fillStyle = grad;
-        ctx.fill();
-      }
-
-      if (prog < 1) {
-        canvasAnimRef.current = requestAnimationFrame(draw);
-      }
-    };
-
-    canvasAnimRef.current = requestAnimationFrame(draw);
-    return () => {
-      if (canvasAnimRef.current !== null) cancelAnimationFrame(canvasAnimRef.current);
-    };
-  }, [overlayMounted]);
 
   // Fetch all haikus at the current journey post's place when place changes.
   // Cache by place_id — only fetches on place change, uses cache for same-place navigation.
@@ -767,10 +666,21 @@ export default function Home() {
             }
           }}
         >
-          <canvas
-            ref={canvasRef}
+          <svg
+            viewBox="0 0 400 600"
+            preserveAspectRatio="xMidYMid slice"
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' }}
-          />
+          >
+            <path
+              d="M 60,80 C 145,35 295,55 355,120 C 405,165 398,230 320,265 C 248,298 148,298 88,272 C 32,248 18,195 55,152 C 88,112 165,100 238,125 C 308,148 358,200 348,272 C 338,335 285,372 212,388 C 145,402 78,390 52,442 C 30,482 58,535 132,556 C 200,574 295,562 360,528 C 398,505 415,542 450,650"
+              stroke="#8a6a2a"
+              strokeWidth="1.5"
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ strokeDasharray: 3000, strokeDashoffset: 3000, animation: 'path-draw 6s linear forwards' }}
+            />
+          </svg>
         </div>
       )}
 
