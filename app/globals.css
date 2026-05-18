@@ -253,3 +253,7 @@ body::after {
   from { stroke-dashoffset: 3000; }
   to   { stroke-dashoffset: 0; }
 }
+@keyframes phrase-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
