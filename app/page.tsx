@@ -64,6 +64,8 @@ type _getCityRef = typeof getCity;
 
 const BRIDGES = ['the thread continues', 'another voice, same sky', 'silence answered', 'the mood deepens', 'worlds apart, same ache'];
 
+const LOADING_PHRASES = ['threading a path', 'finding the thread', 'following the thread', 'a path is forming'];
+
 const THREAD_COLORS: Record<string, string> = {
   'emotional resonance':          '#8b2a1a',
   'time of day':                  '#8a6a2a',
@@ -145,6 +147,7 @@ export default function Home() {
   const linesRef = useRef<string[]>(['', '', '']);
   const locationTextRef = useRef('');
   const authorTextRef = useRef('');
+  const loadingPhraseRef = useRef(LOADING_PHRASES[Math.floor(Math.random() * LOADING_PHRASES.length)]);
 
   // Timeline slider state
   const [placeHaikus, setPlaceHaikus] = useState<HaikuPost[]>([]);
@@ -324,9 +327,12 @@ export default function Home() {
   // Keep journeyIndexRef in sync with ci state
   useEffect(() => { journeyIndexRef.current = ci; }, [ci]);
 
-  // Remount loading overlay when a between-journey gap begins (was unmounted after initial-load fade)
+  // Remount loading overlay when a between-journey gap begins; pick a fresh phrase
   useEffect(() => {
-    if (journeyLoading) setOverlayMounted(true);
+    if (journeyLoading) {
+      loadingPhraseRef.current = LOADING_PHRASES[Math.floor(Math.random() * LOADING_PHRASES.length)];
+      setOverlayMounted(true);
+    }
   }, [journeyLoading]);
 
   // Fetch all haikus at the current journey post's place when place changes.
@@ -673,52 +679,73 @@ export default function Home() {
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' }}
             preserveAspectRatio="xMidYMid meet"
           >
-            {appReady ? (
-              // Between-journey route — loop sits lower, different rhythm through the same landscape
-              <path
-                d="M 60,80
-                   C 145,35 295,55 355,120
-                   C 405,165 398,230 320,265
-                   C 248,298 148,298 88,272
-                   C 32,248 18,195 55,152
-                   C 88,112 165,100 238,125
-                   C 308,148 358,200 348,272
-                   C 338,335 285,372 212,388
-                   C 145,402 78,390 52,442
-                   C 30,482 58,535 132,556
-                   C 200,574 295,562 360,528
-                   C 398,505 415,542 392,580"
-                stroke="#8a6a2a"
-                strokeWidth="1.5"
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ strokeDasharray: 3000, strokeDashoffset: 3000, animation: 'path-draw 6s linear forwards' }}
-              />
-            ) : (
-              // Initial load route — same path as between-journey
-              <path
-                d="M 60,80
-                   C 145,35 295,55 355,120
-                   C 405,165 398,230 320,265
-                   C 248,298 148,298 88,272
-                   C 32,248 18,195 55,152
-                   C 88,112 165,100 238,125
-                   C 308,148 358,200 348,272
-                   C 338,335 285,372 212,388
-                   C 145,402 78,390 52,442
-                   C 30,482 58,535 132,556
-                   C 200,574 295,562 360,528
-                   C 398,505 415,542 392,580"
-                stroke="#8a6a2a"
-                strokeWidth="1.5"
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ strokeDasharray: 3000, strokeDashoffset: 3000, animation: 'path-draw 6s linear forwards' }}
-              />
-            )}
+            <defs>
+              <filter id="tip-glow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+                <feMerge>
+                  <feMergeNode in="blur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
+            {/* Main trail — gold */}
+            <path
+              d="M 60,80
+                 C 145,35 295,55 355,120
+                 C 405,165 398,230 320,265
+                 C 248,298 148,298 88,272
+                 C 32,248 18,195 55,152
+                 C 88,112 165,100 238,125
+                 C 308,148 358,200 348,272
+                 C 338,335 285,372 212,388
+                 C 145,402 78,390 52,442
+                 C 30,482 58,535 132,556
+                 C 200,574 295,562 360,528
+                 C 398,505 415,542 392,580"
+              stroke="#8a6a2a"
+              strokeWidth="1.5"
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ strokeDasharray: 3000, strokeDashoffset: 3000, animation: 'path-draw 6s linear forwards' }}
+            />
+            {/* Burning tip — bright amber glow at the leading edge */}
+            <path
+              d="M 60,80
+                 C 145,35 295,55 355,120
+                 C 405,165 398,230 320,265
+                 C 248,298 148,298 88,272
+                 C 32,248 18,195 55,152
+                 C 88,112 165,100 238,125
+                 C 308,148 358,200 348,272
+                 C 338,335 285,372 212,388
+                 C 145,402 78,390 52,442
+                 C 30,482 58,535 132,556
+                 C 200,574 295,562 360,528
+                 C 398,505 415,542 392,580"
+              stroke="#f5d980"
+              strokeWidth={3}
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              filter="url(#tip-glow)"
+              opacity={0.9}
+              style={{ strokeDasharray: '30 2970', strokeDashoffset: 3000, animation: 'path-draw 6s linear forwards' }}
+            />
           </svg>
+          {/* Phrase — fades in after 1200ms, picked fresh on each mount */}
+          <div style={{
+            position: 'absolute', bottom: '20%', left: 0, right: 0,
+            textAlign: 'center',
+            fontFamily: "'Shippori Mincho', serif",
+            fontSize: 13,
+            color: 'var(--ink-faint)',
+            letterSpacing: '0.25em',
+            textTransform: 'uppercase',
+            animation: 'phrase-fade 600ms ease 1200ms both',
+          }}>
+            {loadingPhraseRef.current}
+          </div>
         </div>
       )}
 
