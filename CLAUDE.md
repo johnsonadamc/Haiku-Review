@@ -16,36 +16,44 @@ It is also, straightforwardly, an art project. Build it like one.
 
 ## Current Build Status
 
-The Next.js app is fully scaffolded, running, and substantially built in GitHub Codespaces.
+The app is deployed and live at **haikureview.online** (Vercel). Dev environment is GitHub Codespaces (`johnsonadamc/Haiku-Review`), branch `main`.
 
-**Working:**
+**Working and deployed:**
 - Next.js 16 App Router with TypeScript
 - Supabase connected (places, haikus, holds tables live with RLS)
-- Dev server running on port 3000
 - AI-threaded journey as default entry experience
-- Page curl transition between haikus (CSS clip-path, bottom-right corner forward / bottom-left corner backward)
-- Vertical timeline slider (right edge, tap-to-jump, read-only visual indicator)
-- Whole-screen swipe gestures (left/right = journey, up/down = timeline time travel)
+- Depth push transition between journey haikus (left/right)
+- iOS-style vertical card slide for timeline navigation (up/down)
+- Vertical timeline slider (right edge, newest at top, oldest at bottom, tap-to-jump)
+- Whole-screen swipe gestures (left/right = journey, up/down = timeline)
+- Swipe left/right works at ANY point in timeline — immediately exits and advances journey
+- Timeline mode shows position counter ("2 of 4") instead of prev/next arrows; arrows return at newest
 - Syllable counter with pip bars (green/red/grey, uses `syllable` npm package)
 - Hold mechanic (800ms long-press, gold ripple, silent held_count increment)
 - Submit panel with photo upload, place search, magic-link email auth
+- Google Places API (New) connected — proxied server-side via `/api/places/search` and `/api/places/details`
 - Optional magic-link email auth (Supabase Auth, no passwords)
 - "Your Haikus" overlay for returning magic-link users
+- Map explorer: Stadia Maps Stamen Watercolor tiles via MapLibre GL JS
+- Map shows place dots sized by haiku_count, tap dot → tooltip → Go → seeds AI journey
+- Map pre-builds journey when tooltip opens (not when Go pressed) for faster transition
+- QR/place-mode entry (`?place=<google_place_id>` URL param → skips atmospheric pause)
+- Left-edge thread color hairline (1px, crossfades 800ms on thread change)
+- Loading animation: 12 rotating SVG paths, gold wandering line, cycles sequentially
+- Loading animation shows on: initial load, between-journey gaps, map→journey transition
 - Seed script with rich haiku data and stock images
 - Mobile-first responsive design
+- Deployed to Vercel at haikureview.online
+- Domain: haikureview.online (Squarespace DNS → Vercel)
 
-**In progress / needs attention:**
-- Photo upload to Supabase storage (wired but untested with real files)
-- Google Places API not yet connected (using hardcoded suggestions — needs `GOOGLE_PLACES_API_KEY`)
-- Mapbox not yet connected (canvas placeholder — needs `NEXT_PUBLIC_MAPBOX_TOKEN`)
-- Timeline vertical slide transition occasionally glitchy — may need smoothing pass
+**Needs attention / in progress:**
+- Photo upload to Supabase storage (wired but real-file persistence unverified)
+- Resend email integration not yet configured (Supabase still sending default magic-link emails)
+- Loading animation occasionally glitchy on some transitions (known, low priority)
 
 **Not yet built:**
-- Vercel deployment
 - QR code generation for physical placement
-- Map as explorer (location tag tap → map → place dot → seed AI journey)
-- QR/place-mode entry (`?place=<google_place_id>` URL param)
-- Left-edge hairline thread-color rule
+- Resend SMTP connected to Supabase for branded magic-link emails
 
 ---
 
@@ -54,11 +62,12 @@ The Next.js app is fully scaffolded, running, and substantially built in GitHub 
 - **Framework:** Next.js 16 (App Router, TypeScript)
 - **Database + Auth + Storage:** Supabase (`lopfvramjhsowjfkynrp`)
 - **Styling:** Tailwind CSS with custom CSS variables — no component libraries
-- **Map:** Canvas placeholder now — Mapbox GL JS when token provided (`NEXT_PUBLIC_MAPBOX_TOKEN`)
-- **AI Journeys:** Anthropic API (`claude-sonnet-4-6`) — server-side only via `/api/journey`
-- **Syllable counting:** `syllable` npm package (ESM, added to `transpilePackages` in next.config.ts)
-- **Deployment:** Vercel (not yet deployed)
-- **Dev:** GitHub Codespaces (`johnsonadamc/Haiku-Review`)
+- **Map:** MapLibre GL JS + Stadia Maps Stamen Watercolor tiles (`NEXT_PUBLIC_STADIA_API_KEY`)
+- **AI Journeys:** Anthropic API (`claude-sonnet-4-6`) — server-side only via `/api/journey`, max_tokens 300, 2s timeout with random shuffle fallback
+- **Place Search:** Google Places API (New) — `places.googleapis.com/v1/places:searchText` and `/v1/places/{id}` — proxied server-side, never client-exposed
+- **Syllable counting:** `syllable` npm package (ESM, in `transpilePackages` in next.config.ts)
+- **Deployment:** Vercel (live at haikureview.online)
+- **Dev:** GitHub Codespaces (`johnsonadamc/Haiku-Review`), branch `main`
 
 ---
 
@@ -76,44 +85,67 @@ The Next.js app is fully scaffolded, running, and substantially built in GitHub 
 
 **The map is secondary.** It opens from the location tag tap. It's beautiful but it's not the homepage.
 
+**The timeline is a detour, not a trap.** Swiping left/right at any point in the timeline immediately exits timeline mode and advances the journey. Users are never stuck.
+
 ---
 
 ## Navigation Model
 
 ### Default: AI-Threaded Journey
-- App opens with a brief atmospheric pause (gold rule draws across center, ~1.4s)
-- First haiku reveals with stagger timing
+- App opens with loading animation (SVG wandering path draws, ~4s overlay)
+- First haiku reveals with stagger timing when both animation and data are ready
 - Journey pool = most recent haiku per place, filtered before calling `/api/journey`
 - AI sequences haikus by a randomly selected thread type (invisible to user)
-- Swiping left (finger moves left) = next haiku in journey
-- Swiping right (finger moves right) = previous haiku in journey
-- Journey is endless — seamless continuation fetched in background as user nears the end
+- Swiping left (finger moves left) = next haiku in journey (depth push transition)
+- Swiping right (finger moves right) = previous haiku in journey (depth push transition)
+- Journey is endless — next journey pre-fetched in background as user nears the end
+- Between journeys: loading animation shows, new journey loads, fades in
 
 ### Timeline Mode (place with 2+ haikus)
 - Vertical slider appears on right edge when current place has 2+ haikus
-- Slider is read-only visual indicator + tap-to-jump (no dragging)
-- Thumb starts at bottom = most recent (present); top = oldest (past)
-- Swiping UP = go back in time (older haiku at this place)
-- Swiping DOWN = go forward in time (newer haiku, toward present)
+- Slider: newest at TOP, oldest at BOTTOM
+- Thumb starts at top (position 1 = most recent)
+- Swiping UP = go to older haiku (thumb moves down)
+- Swiping DOWN = go to newer haiku (thumb moves up)
 - At oldest haiku: swipe up does nothing
-- At most recent haiku: swipe down exits timeline mode silently
-- At most recent haiku in timeline mode: swipe left advances to next journey haiku
-- Tapping a tick on the slider jumps directly to that haiku
+- At newest haiku: swipe down exits timeline mode silently
+- **Swiping LEFT or RIGHT at any timeline position:** immediately exits timeline and advances journey (depth push)
+- Position counter shows "2 of 4" (1 = newest, N = oldest) — replaces prev/next arrows
+- Arrows return when back at position 1 (newest)
+- Tap any tick on slider to jump directly to that haiku
 
 ### Transitions
-- Journey navigation: CSS page curl (clip-path polygon animation, 420ms)
-  - Forward (swipe left): curl from bottom-right corner
-  - Backward (swipe right): curl from bottom-left corner
-- Timeline navigation: vertical card slide (translateY, 320ms)
-  - Going back in time (swipe up): current card exits UP, older card enters from BOTTOM
-  - Going forward in time (swipe down): current card exits DOWN, newer card enters from TOP
-- Both transitions: content swaps at midpoint (210ms for curl, 160ms for slide), stagger reveal begins underneath
+- **Journey navigation (left/right):** Depth push — outgoing card scales to 0.94 and fades, incoming card slides in from the side. Exit: 320ms `cubic-bezier(0.4,0,1,1)`. Enter: 380ms `cubic-bezier(0.25,0.46,0.45,0.94)`, 20ms delay.
+- **Timeline navigation (up/down):** iOS-style vertical push — both cards animate simultaneously. Exiting card accelerates out, entering card decelerates in with parallax offset. Exit: 320ms. Enter: 380ms, 30ms delay, `animation-fill-mode: both`.
+- **Loading overlay:** SVG path draws on parchment background, fades out over 800ms when content ready.
+
+### Loading Animation
+- 12 distinct SVG paths stored in `LOADING_PATHS` array in `page.tsx`
+- Cycles sequentially (not randomly) — initialized at random index, then +1 mod 12 each time
+- Path index advances inside `onTransitionEnd` (after fade) — never during animation
+- `clientReady` state prevents SSR rendering — overlay only mounts client-side
+- Shows during: initial load, between-journey gap, map→journey (`handlePlaceClick`)
+- `animTimer`: 2000ms — overlay starts fading at 2s, 800ms fade, content appears ~2.8s
+- `tryReveal` gates on both `animComplete` AND `contentReady` — whichever is last
+- `journeyLoading` + `overlayMounted` drive the overlay — never merged with `isTransitioning`
+
+### Map Explorer
+- Opens from location tag tap (bottom-left) — only entry point
+- Centered on the place the user was just viewing (`currentPlace` prop)
+- Stadia Maps Stamen Watercolor tiles via MapLibre GL JS
+- Place dots: `Math.min(12 + haiku_count * 3, 32)px`, seal red, 44px touch targets
+- Tooltip opens on dot tap (not hover — mobile): place name, city, haiku count, distance in miles (if geolocation granted)
+- Journey pre-builds when tooltip opens (`onTooltipOpen` prop → `pendingPlaceJourneyRef`)
+- Go button: closes map, uses pre-built journey if ready, otherwise builds then
+- `handlePlaceClick`: always forces most recent haiku from tapped place to `seq[0]`
+- `increment_haiku_count` RPC uses admin client (bypasses RLS) with parameter `p_place_id`
 
 ### Keyboard Equivalents
-- ArrowLeft = swipe right (prev journey / forward in time)
-- ArrowRight = swipe left (next journey / back in time)
+- ArrowLeft = swipe right (prev journey)
+- ArrowRight = swipe left (next journey)
 - ArrowUp = swipe up (back in time)
 - ArrowDown = swipe down (forward in time)
+- All keyboard/swipe handlers guard: `if (!appReady || journeyLoading || overlayMounted) return`
 
 ---
 
@@ -150,15 +182,26 @@ The Next.js app is fully scaffolded, running, and substantially built in GitHub 
 
 ### Photo Treatment
 ```css
-filter: saturate(0.6) brightness(1.12) contrast(0.88);
+filter: saturate(0.85) brightness(1.02) contrast(0.95);
 ```
-Heavy parchment wash over photo — text reads as ink on paper, not light on dark:
+Parchment wash concentrated in bottom third only — upper photo shows full color:
 ```css
 background: linear-gradient(to top,
-  rgba(245,240,232,0.97) 0%, rgba(245,240,232,0.88) 22%,
-  rgba(245,240,232,0.62) 48%, rgba(245,240,232,0.2) 72%,
-  rgba(245,240,232,0.04) 100%);
+  rgba(245,240,232,0.98) 0%,
+  rgba(245,240,232,0.95) 8%,
+  rgba(245,240,232,0.85) 16%,
+  rgba(245,240,232,0.65) 26%,
+  rgba(245,240,232,0.30) 36%,
+  rgba(245,240,232,0.08) 48%,
+  rgba(245,240,232,0.0) 60%,
+  rgba(245,240,232,0.0) 100%);
 ```
+Apply identically to main viewer, depth exit overlay, and timeline exit overlay.
+
+### Text Legibility
+- Haiku lines: `color: var(--ink)`, `fontWeight: 500/400`
+- Location tag and author: `color: var(--ink)`, full opacity (not ink-soft, not reduced opacity)
+- No text-shadow on any element
 
 ### Stagger Timing
 - Location tag: 180ms
@@ -172,62 +215,74 @@ background: linear-gradient(to top,
 ## Features
 
 ### 1. Haiku Viewer (Primary Surface)
-- Full-bleed photo background with parchment wash overlay
+- Full-bleed photo background with parchment wash overlay (concentrated at bottom)
 - Haiku lines reveal staggered (see timings above)
 - Whole-screen swipe gestures (left/right = journey, up/down = timeline)
-- **Hold mechanic:** long-press (800ms) anywhere on the haiku stage triggers a gold ripple and increments held_count silently. No count ever shown. No hint text shown — discovered organically.
-- Wordmark top-left: "Haiku" (Zen Old Mincho, opacity 0.5, letter-spacing 0.38em) / gold rule (24px, 1px, #8a6a2a) / "Review" (Shippori Mincho, letter-spacing 0.3em)
+- **Hold mechanic:** long-press (800ms) anywhere on haiku stage → gold ripple → silent held_count increment. No count shown. No hint. Discovered organically.
+- Wordmark top-left: "Haiku" (Zen Old Mincho, opacity 0.5, letter-spacing 0.38em) / gold rule / "Review" (Shippori Mincho)
 - `+ Submit` button top-right
-- Location tag bottom-left: "Place Name · City" format (e.g. "Fushimi Inari · Kyoto, Japan")
+- Location tag bottom-left: "Place Name · City" format — `color: var(--ink)`, full opacity
+- Author bottom: `color: var(--ink)`, full opacity
 - Collection info vertical label left side: "N haikus · N places", writing-mode: vertical-rl
+- Left-edge thread color hairline: 1px fixed, full height, color from `THREAD_COLORS[threadType]`, crossfades 800ms
 
 ### 2. Vertical Timeline Slider
 - Appears on right edge when current place has 2+ haikus
 - Position: `fixed`, `right: 0`, `top: 80px`, height `45vh` max
-- Track: 1px gold line; ticks: one per haiku, year labels at year boundaries
+- **Newest at TOP, oldest at BOTTOM**
+- `pct = (1 - i/(n-1)) * 100` — index n-1 (newest) maps to 0% (top)
+- Click handler: `Math.round((1 - pct) * (n-1))`
+- Track: 1px gold line; ticks: one per haiku; year labels at year boundaries
 - Thumb: 6px gold circle at active position
-- Bottom = most recent (present); top = oldest (past)
 - Tap any tick to jump to that haiku
-- No drag interaction — read-only visual indicator
-- No label or icon below the slider
+- No drag interaction
 
 ### 3. Location Tag → Map Entry
-- Location tag at bottom-left shows "Place · City" format
-- Tap opens map overlay (this is the ONLY map entry point)
-- `›` arrow slides in on hover
-- Do NOT add a "Places" button anywhere else
+- Location tag at bottom-left tapped → opens MapOverlay
+- Only map entry point — no "Places" button elsewhere
+- `›` arrow slides in on hover/focus
 
-### 4. Map
-- Full-screen overlay, parchment background
-- Sumi-ink aesthetic: parchment land (#f0ebe0), cool grey-blue water (#d2d6db), hairline ink shorelines
-- Place dots sized proportionally to haiku_count
-- Hover: tooltip with place name, city, haiku count, gold rule
-- Click dot: closes map, triggers AI journey seeded from that place
-- Pan (drag), zoom (wheel/pinch)
-- `NEXT_PUBLIC_MAPBOX_TOKEN` blank = canvas placeholder
+### 4. Map (MapOverlay.tsx)
+- MapLibre GL JS with Stadia Maps Stamen Watercolor tiles
+- Tile URL: `https://tiles.stadiamaps.com/styles/stamen_watercolor.json?api_key=${NEXT_PUBLIC_STADIA_API_KEY}`
+- Centered on `currentPlace` (place user was just viewing) via `easeTo`
+- Rotation disabled
+- Places fetched fresh from Supabase on mount
+- Dot markers: seal red, sized `Math.min(12 + haiku_count*3, 32)px`, 44px touch targets
+- `touchEl.dataset.placeId` stores place ID — click handler reads `e.currentTarget.dataset.placeId`
+- `placesRef` mirrors `places` state for stable DOM handler lookups
+- `selectedPlace` React state drives tooltip (not a ref — prevents stale closure)
+- Tooltip: place name, city, haiku count, distance in miles (Haversine, geolocation optional)
+- `onTooltipOpen` prop fires when tooltip opens → `page.tsx` pre-builds journey
+- Go button: `selectedPlace` from state (never stale), calls `onPlaceSelect`
+- Map click guard: only clears tooltip if click target is not a marker
 
 ### 5. AI Journeys
 - Default experience — app opens into a journey
-- Journey pool filtered to most recent haiku per place before calling API
-- Calls `claude-sonnet-4-6` via `/api/journey` server route — NEVER from client
-- Thread types rotate randomly: 'emotional resonance' | 'time of day' | 'the texture of silence' | 'figures seen from a distance' | 'the weight of memory' | 'threshold moments' | 'what is left unsaid' | 'light and its quality' | 'solitude in crowds' | 'the presence of absence'
+- Journey pool: `mostRecentPerPlace()` — one haiku per place_id, highest created_at
+- Calls `claude-sonnet-4-6` via `/api/journey` — NEVER from client
+- `max_tokens: 300`, `Promise.race` with 2s timeout → random shuffle fallback
+- Thread types (randomly selected, never shown): `'emotional resonance' | 'time of day' | 'the texture of silence' | 'figures seen from a distance' | 'the weight of memory' | 'threshold moments' | 'what is left unsaid' | 'light and its quality' | 'solitude in crowds' | 'the presence of absence'`
 - No bridge labels shown between haikus — transitions are silent
 - Journey is endless — next journey pre-fetched before current ends
-- Always fallback to random shuffle if API call fails
+- `handlePlaceClick` always forces most recent haiku from tapped place to `seq[0]`
 
 ### 6. Submit
-- Accessed via `+ Submit` button top-right
-- Full-screen overlay
-- Fields: photo upload (Supabase storage), name (optional), email (optional, for magic-link), specific place search, haiku textarea
-- **Place search:** calls `/api/places/search` — proxies Google Places API. Falls back to hardcoded suggestions if key missing.
-- **Syllable indicator:** three pip bars below textarea. Green = correct (5/7/5). Red = off (only after 3+ syllables typed per line). Shows count/target (e.g. "3/5"). Guides, never blocks.
-- After submit: shows one previous haiku from same place, then returns to viewer
+- `+ Submit` button top-right → full-screen overlay
+- Fields: photo upload, name (optional), email (optional, for magic-link), place search, haiku textarea
+- Place search: `/api/places/search` → Google Places API (New) `searchText` endpoint, up to 8 results
+- Place details: `/api/places/details` → `/v1/places/{id}`, returns lat/lng/city/name
+- City extracted from `formattedAddress` (everything after first comma) as fallback
+- `selectPlace` uses details city if search result had empty city: `c: p.c || geo.city || ''`
+- Syllable indicator: three pip bars, green/red/grey, shows count/target after 3+ syllables
+- After submit: shows one previous haiku from same place, returns to viewer
+- `increment_haiku_count` called via admin client with `{ p_place_id: place.id }`
 
 ### 7. Magic-Link Auth (Optional)
 - Email field in submit panel — optional, never required
-- If email provided: Supabase `signInWithOtp` fires, haiku saved with user_id
-- Magic link → `/auth/callback` → redirects to `/?haikus=mine`
-- "Your Haikus" overlay: lists place · city, date, first line. No counts, no metrics.
+- Supabase `signInWithOtp` → magic link → `/auth/callback` → `/?haikus=mine`
+- "Your Haikus" overlay: lists place · city, date, first line. No counts.
+- Resend SMTP not yet configured — still using Supabase default sender
 
 ---
 
@@ -255,7 +310,7 @@ haikus (
   line_3 text not null,
   photo_url text,
   held_count int default 0,
-  user_id uuid references auth.users,   -- nullable, added via migration 001
+  user_id uuid references auth.users,   -- nullable
   created_at timestamptz default now()
 )
 
@@ -272,9 +327,7 @@ RLS enabled on all tables. Haikus and places: publicly readable, open insert. Ho
 
 Helper functions:
 - `increment_held(haiku_id uuid)` — increments held_count
-- `increment_haiku_count(place_id uuid)` — increments haiku_count on places
-
-Migration applied: `supabase/migrations/001_user_id.sql` — adds nullable `user_id` column to haikus.
+- `increment_haiku_count(p_place_id uuid)` — increments haiku_count on places (parameter is `p_place_id`, not `place_id` — renamed to avoid column name conflict). Called via admin client only.
 
 ---
 
@@ -284,8 +337,8 @@ Migration applied: `supabase/migrations/001_user_id.sql` — adds nullable `user
 GET  /api/haikus?place_id=&order=asc   — temporal feed, falls back to seed data if empty
 POST /api/haikus                        — create haiku + find-or-create place
 POST /api/holds                         — record hold, deduplicate by session_id
-GET  /api/places/search?q=             — Google Places proxy (falls back to hardcoded list)
-GET  /api/places/details?place_id=     — Google Place Details for lat/lng
+GET  /api/places/search?q=             — Google Places (New) proxy, up to 8 results
+GET  /api/places/details?place_id=     — Google Place Details (New) for lat/lng/city/name
 POST /api/journey                       — build AI journey server-side only
 GET  /api/my-haikus                     — fetch haikus for authenticated user
 /auth/callback                          — Supabase magic-link exchange route
@@ -305,33 +358,40 @@ Return {n} IDs ordered by this theme. For each after the first, write a 5-8 word
 Use only these IDs: [...]. Exactly {n} IDs, exactly {n} connections (first always empty string).
 ```
 
-Bridge labels are NOT displayed to the user. Thread type is stored in state but never shown.
-Always fallback to random shuffle with preset bridges if parsing fails.
+Bridge labels are NOT displayed to the user. Thread type stored in state, never shown.
+Always fallback to random shuffle with empty connections if API call fails or times out (2s).
 
 ---
 
 ## Key CSS — Transitions
 
 ```css
-/* Page curl — journey navigation */
-@keyframes curl-forward {
-  0%   { clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%); }
-  100% { clip-path: polygon(0% 0%, 100% 0%, 0% 0%, 0% 100%); }
+/* Depth push — journey navigation (left/right) */
+@keyframes depth-exit {
+  from { transform: scale(1);    opacity: 1; }
+  to   { transform: scale(0.94); opacity: 0; }
 }
-@keyframes curl-backward {
-  0%   { clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%); }
-  100% { clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 100% 0%); }
+@keyframes depth-enter-from-right {
+  from { transform: translateX(100vw) scale(0.98); opacity: 0.6; }
+  to   { transform: translateX(0)     scale(1);    opacity: 1; }
 }
-.page-curl-exit-forward  { position:fixed;inset:0;z-index:40;transform-origin:right center;animation:curl-forward 420ms cubic-bezier(0.4,0,1,1) forwards; }
-.page-curl-exit-backward { position:fixed;inset:0;z-index:40;transform-origin:left center;animation:curl-backward 420ms cubic-bezier(0.4,0,1,1) forwards; }
+@keyframes depth-enter-from-left {
+  from { transform: translateX(-100vw) scale(0.98); opacity: 0.6; }
+  to   { transform: translateX(0)      scale(1);    opacity: 1; }
+}
+.depth-exit { position:fixed;inset:0;z-index:40;animation:depth-exit 320ms cubic-bezier(0.4,0,1,1) forwards;pointer-events:none; }
+.depth-enter-from-right { position:fixed;inset:0;z-index:39;animation:depth-enter-from-right 380ms cubic-bezier(0.25,0.46,0.45,0.94) forwards;animation-delay:20ms;animation-fill-mode:both;pointer-events:none; }
+.depth-enter-from-left  { position:fixed;inset:0;z-index:39;animation:depth-enter-from-left  380ms cubic-bezier(0.25,0.46,0.45,0.94) forwards;animation-delay:20ms;animation-fill-mode:both;pointer-events:none; }
 
-/* Vertical card slide — timeline navigation */
-@keyframes slide-exit-up   { from{transform:translateY(0)} to{transform:translateY(-100vh)} }
-@keyframes slide-exit-down { from{transform:translateY(0)} to{transform:translateY(100vh)} }
-@keyframes slide-enter-from-bottom { from{transform:translateY(100vh)} to{transform:translateY(0)} }
-@keyframes slide-enter-from-top    { from{transform:translateY(-100vh)} to{transform:translateY(0)} }
-.timeline-exit-up    { position:fixed;inset:0;z-index:40;animation:slide-exit-up 320ms cubic-bezier(0.4,0,0.2,1) forwards;box-shadow:0 -8px 32px rgba(30,26,20,0.18); }
-.timeline-exit-down  { position:fixed;inset:0;z-index:40;animation:slide-exit-down 320ms cubic-bezier(0.4,0,0.2,1) forwards;box-shadow:0 8px 32px rgba(30,26,20,0.18); }
+/* Vertical iOS push — timeline navigation (up/down) */
+/* Both cards animate simultaneously. Exit accelerates out, enter decelerates in with parallax. */
+/* Cleared by 420ms setTimeout — not onAnimationEnd */
+
+/* Loading path */
+@keyframes path-draw {
+  from { stroke-dashoffset: 3000; }
+  to   { stroke-dashoffset: 0; }
+}
 ```
 
 ---
@@ -343,10 +403,12 @@ NEXT_PUBLIC_SUPABASE_URL=https://lopfvramjhsowjfkynrp.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=           # in .env.local
 SUPABASE_SERVICE_ROLE_KEY=               # in .env.local — never commit
 ANTHROPIC_API_KEY=                       # in .env.local — required for AI journeys
-NEXT_PUBLIC_MAPBOX_TOKEN=                # blank = canvas placeholder
-GOOGLE_PLACES_API_KEY=                   # blank = hardcoded suggestions
+NEXT_PUBLIC_STADIA_API_KEY=              # Stadia Maps — for Stamen Watercolor map tiles
+GOOGLE_PLACES_API_KEY=                   # Google Places API (New) — server-side only, unrestricted by HTTP referrer
+NEXT_PUBLIC_MAPBOX_TOKEN=                # not used — MapLibre + Stadia instead
 ```
 
+All must also be set in Vercel dashboard → Environment Variables for production.
 `.env.local` is gitignored. Never commit it.
 
 ---
@@ -355,81 +417,93 @@ GOOGLE_PLACES_API_KEY=                   # blank = hardcoded suggestions
 
 **Never call the Anthropic API from the client.** Journey building must go through `/api/journey` server route only.
 
-**Journey pool = most recent per place.** `mostRecentPerPlace()` filters by highest `created_at` per `place_id` before passing to the API. Never pass the full pool.
+**Journey pool = most recent per place.** `mostRecentPerPlace()` filters by highest `created_at` per `place_id`. Never pass the full pool.
 
 **`white-space: nowrap` on all haiku lines.** Without this, long lines wrap and ruin the composition.
 
-**`src={bgSrc || undefined}` on the background img tag.** Never pass an empty string to src — causes browser to reload the page.
+**`src={bgSrc || undefined}` on the background img tag.** Never pass an empty string to src.
 
 **The photo wash layer is z-index 1, above the photo.** The parchment gradient sits over the image — intentional and critical.
 
-**Page curl filter conflict.** Do not put `filter` in the curl keyframes — it overrides the inline `filter: saturate(0.6) brightness(1.12) contrast(0.88)` on the overlay div. Keyframe `filter` wins over inline styles.
+**Do not put `filter` in depth-exit keyframes.** It overrides the inline `filter: saturate(0.85) brightness(1.02) contrast(0.95)` on the overlay div.
 
-**Hold mechanic uses `mousedown`/`touchstart` on the haiku stage div.** The whole stage is the target. Clear timer on `mouseup`, `mouseleave`, `touchend`, `touchcancel`.
+**Hold mechanic uses `mousedown`/`touchstart` on the haiku stage div.** Clear timer on `mouseup`, `mouseleave`, `touchend`, `touchcancel`.
 
-**No hold hint shown.** The hold mechanic is intentionally undiscoverable — no text, no hint.
+**No hold hint shown.** Intentionally undiscoverable.
 
-**Timeline slider top is anchored at 80px** to avoid overlapping the submit button. Not vertically centered.
+**Timeline slider top anchored at 80px** to avoid submit button overlap.
 
-**Swipe gesture detection splits on dx vs dy magnitude** before determining direction. Threshold: 30px minimum.
+**Swipe detection: dx vs dy magnitude first.** 30px minimum threshold. Vertical only fires when `placeHaikus.length > 1`.
 
-**Vertical swipe only fires when `placeHaikus.length > 1`.** Single-haiku places: vertical swipes do nothing.
+**Timeline is a detour.** Left/right swipe exits timeline and advances journey from ANY position — not just atNewest.
 
-**Timeline exit:** swiping past the most recent haiku (swipe down) exits timeline mode silently. Swiping left at the most recent haiku in timeline mode advances to next journey haiku.
+**`overlayMounted` is set directly alongside `journeyLoading`.** No watcher effect — the old `useEffect` watching `journeyLoading` was removed to prevent double-mount. Every call site sets both states synchronously together.
 
-**Place dots on the map are sized by `haiku_count`.** Use the denormalized column — don't count joins on every render.
+**`loadingPathRef` advances in `onTransitionEnd` only** — not on mount. This prevents mid-animation re-renders.
+
+**`clientReady` state** prevents SSR rendering of the loading overlay — prevents hydration flash.
+
+**Map marker click handler reads `e.currentTarget.dataset.placeId`** — not `touchEl.dataset.placeId` from closure (stale closure bug fix).
+
+**`selectedPlace` is React state** — not a ref — so Go button closure always captures current value.
+
+**`increment_haiku_count` uses admin client** and parameter `p_place_id` (not `place_id`).
+
+**Google Places API (New) uses `places.googleapis.com`** — not `maps.googleapis.com`. The legacy endpoint returns `REQUEST_DENIED`. Key must have no HTTP referrer restriction (server-side use).
+
+**Place dots sized by `haiku_count` denormalized column.** Don't count joins on every render.
 
 **Google Places proxy is required.** Never expose `GOOGLE_PLACES_API_KEY` to the client.
 
-**After submission, show one previous haiku from the same place.** Not a feed. One haiku. Then return to viewer.
+**After submission, show one previous haiku from same place.** Not a feed. One haiku. Return to viewer.
 
-**Seed data fallback.** When Supabase tables are empty, `GET /api/haikus` falls back to `lib/seed-data.ts`.
+**Seed data fallback.** When Supabase tables empty, `GET /api/haikus` falls back to `lib/seed-data.ts`.
 
-**`syllable` package is ESM-only.** Added to `transpilePackages` in `next.config.ts`. Do not remove.
+**`syllable` package is ESM-only.** In `transpilePackages` in `next.config.ts`. Do not remove.
 
-**Supabase auth redirect URL** must be set in Supabase dashboard → Authentication → URL Configuration for magic-link to work.
+**Supabase auth redirect URL** must include `haikureview.online/auth/callback` in Supabase dashboard → Authentication → URL Configuration.
+
+**Claude Code pushes to feature branches** (`claude/haiku-review-setup-D6T2O`). Always merge to main manually: `git fetch origin && git merge origin/claude/haiku-review-setup-D6T2O --no-edit && git push`.
 
 ---
 
 ## Seed Data
 
-Rich seed data is in `scripts/seed.ts`. Run with `npx tsx scripts/seed.ts`.
+Rich seed data in `scripts/seed.ts`. Run with `npx tsx scripts/seed.ts`.
 
-7 places, 23 haikus total, with Unsplash stock image URLs:
-- Fushimi Inari Shrine, Kyoto (4 haikus, 2021–2024)
-- Café de Flore, Paris (3 haikus, 2021–2023)
-- The High Line, New York (4 haikus, 2021–2024)
-- Shibuya Crossing, Tokyo (3 haikus, 2021–2023)
-- Tate Modern, London (3 haikus, 2021–2023)
-- Lençóis Maranhenses, Brazil (2 haikus, 2022–2023)
-- Naoshima Island, Japan (3 haikus, 2022–2024)
+7 places, 23 haikus, Unsplash stock image URLs:
+- Fushimi Inari Shrine, Kyoto — lat: 34.9671, lng: 135.7727, google_place_id: ChIJIW0uPRUPAWAR6eI6dRzKGns (4 haikus)
+- Café de Flore, Paris (3 haikus)
+- The High Line, New York (4 haikus)
+- Shibuya Crossing, Tokyo (3 haikus)
+- Tate Modern, London (3 haikus)
+- Lençóis Maranhenses, Brazil (2 haikus)
+- Naoshima Island, Japan (3 haikus)
 
 Script is safe to run multiple times — skips duplicates, updates photo_url if missing.
 
 ---
 
-## Not Yet Built (Priority Order)
+## Remaining Work (Priority Order)
 
-1. **Map as explorer** — location tag tap → map overlay → tap place dot → seeds AI journey from that place. The canvas map exists but dot-click currently triggers old journey mode. Wire it properly.
+1. **Resend email** — connect Resend SMTP to Supabase for branded magic-link emails. Have Resend account. Need to verify `haikureview.online` domain in Resend, add DNS records in Squarespace, configure SMTP in Supabase Auth settings. Sender: `hello@haikureview.online`.
 
-2. **QR / place-mode entry** — `?place=<google_place_id>` URL param → fetch that place's haikus → show 3 haikus from that place → transition to AI journey. Detect param on load, skip atmospheric pause.
+2. **QR code generation** — generate QR codes encoding `?place=<google_place_id>` URLs for physical placement at real locations. This is the primary distribution mechanism.
 
-3. **Left-edge thread color rule** — 1px hairline, full height, left edge of screen. Color maps to current thread type. Crossfades over 800ms when thread changes. Never labeled.
+3. **Photo upload verification** — confirm Supabase storage is actually persisting uploaded photos end-to-end with real files (not just base64 previews).
 
-4. **Vercel deployment** — standard Next.js deployment, environment variables in Vercel dashboard.
-
-5. **QR code generation** — generate QR codes encoding `?place=<google_place_id>` URLs for physical placement.
+4. **Seed more real content** — 23 seed haikus is thin for a public launch. Target 50–100 real haikus across 15–20 real places before showing to anyone.
 
 ---
 
 ## Git / Codespaces
 
 - Repo: `github.com/johnsonadamc/Haiku-Review`
-- Branch: `main`
-- Always work on main. No feature branches unless explicitly requested.
-- Commit and push after every meaningful change — don't batch everything at the end.
+- Branch: `main` — always work on main directly
+- Claude Code pushes to feature branches — merge manually (see gotchas above)
 - Dev server: `npm run dev` in Codespaces terminal
 - Build check: `npm run build` before committing
+- After merging: `git push` to keep origin/main current
 
 ---
 
@@ -439,7 +513,7 @@ Script is safe to run multiple times — skips duplicates, updates photo_url if 
 - Not gamified. No streaks, no points, no leaderboards.
 - Not a recommendation engine. The AI builds journeys — it doesn't surface "popular" content.
 - Not optimized for engagement. Slow transitions, contemplative pacing, no infinite scroll.
-- Not trying to scale to millions of users. Small, careful, meaningful.
+- Not trying to scale to millions. Small, careful, meaningful.
 
 ---
 
