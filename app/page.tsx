@@ -460,33 +460,25 @@ export default function Home() {
     const ni = journeyIndexRef.current + dir;
     if (ni < 0) return;
     if (ni >= journey.seq.length) {
-      if (nextJourneyRef.current) {
-        const newJ = nextJourneyRef.current;
-        nextJourneyRef.current = null;
-        globalJourneyRef.current = newJ;
-        setJourney(newJ);
-        doNavigate(0, '', newJ.type, direction);
-      } else {
-        setIsTransitioning(true);
-        setJourneyLoading(true);
-        setOverlayMounted(true);
-        const poll = () => {
-          if (nextJourneyRef.current) {
-            const newJ = nextJourneyRef.current;
-            nextJourneyRef.current = null;
-            globalJourneyRef.current = newJ;
-            setJourney(newJ);
-            setCi(0);
-            journeyIndexRef.current = 0;
-            setJourneyLoading(false);
-            triggerReveal();
-            setTimeout(() => setIsTransitioning(false), 420);
-          } else {
-            setTimeout(poll, 100);
-          }
-        };
-        setTimeout(poll, 340);
-      }
+      setIsTransitioning(true);
+      setJourneyLoading(true);
+      setOverlayMounted(true);
+      const poll = () => {
+        if (nextJourneyRef.current) {
+          const newJ = nextJourneyRef.current;
+          nextJourneyRef.current = null;
+          globalJourneyRef.current = newJ;
+          setJourney(newJ);
+          setCi(0);
+          journeyIndexRef.current = 0;
+          setJourneyLoading(false);
+          triggerReveal();
+          setTimeout(() => setIsTransitioning(false), 420);
+        } else {
+          setTimeout(poll, 100);
+        }
+      };
+      setTimeout(poll, 340);
       return;
     }
     doNavigate(ni, journey.conn[ni], journey.type, direction);
@@ -623,7 +615,8 @@ export default function Home() {
       const prebuilt = pendingPlaceIdRef.current === place.id ? pendingPlaceJourneyRef.current : null;
       pendingPlaceJourneyRef.current = null;
       pendingPlaceIdRef.current = null;
-      const j = prebuilt || await buildJourneyFromPool(posts, place.name);
+      const j = await (prebuilt ? Promise.resolve(prebuilt) : buildJourneyFromPool(posts, place.name));
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
       // Find the most recent haiku from the tapped place and force it to position 0.
       // buildJourneyFromPool passes placeName as an AI hint — not a filter — so the
@@ -646,12 +639,14 @@ export default function Home() {
       setJourney(j);
       setCi(0);
       setJourneyLoading(false);
-setTimeout(() => setOverlayMounted(false), 900);
-triggerReveal();
-} catch {
-  setJourneyLoading(false);
-  setTimeout(() => setOverlayMounted(false), 900);
-}
+      triggerReveal();
+      // onTransitionEnd may not fire if the opacity transition doesn't run cleanly,
+      // so guarantee overlayMounted clears after 800ms fade + buffer.
+      setTimeout(() => setOverlayMounted(false), 900);
+    } catch {
+      setJourneyLoading(false);
+      setTimeout(() => setOverlayMounted(false), 900);
+    }
   }, [posts, triggerReveal]);
 
   // Map tooltip open: fire-and-forget pre-build so journey is ready when user taps Go
