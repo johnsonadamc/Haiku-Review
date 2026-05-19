@@ -762,11 +762,10 @@ export default function Home() {
           }}>
             {/* Location tag */}
             <div style={{
-              fontFamily: "'Shippori Mincho', serif", fontSize: 10, color: 'var(--ink-soft)',
-              opacity: 0.68, marginBottom: 16,
+              fontFamily: "'Shippori Mincho', serif", fontSize: 10, color: 'var(--ink)',
+              marginBottom: 16,
               display: 'inline-flex', alignItems: 'center', gap: 10,
               letterSpacing: '0.28em', textTransform: 'uppercase',
-              textShadow: '0 1px 8px rgba(245,240,232,0.9), 0 0px 24px rgba(245,240,232,0.7)',
             }}>
               <div style={{ width: 20, height: 1, background: 'var(--gold)', flexShrink: 0, opacity: 0.9 }} />
               {depthState.locationText}
@@ -796,9 +795,8 @@ export default function Home() {
             </div>
             {/* Author */}
             <div style={{
-              fontFamily: "'Shippori Mincho', serif", fontSize: 11, color: 'var(--ink-soft)',
-              opacity: 0.5, letterSpacing: '0.2em', whiteSpace: 'nowrap', marginBottom: 8,
-              textShadow: '0 1px 8px rgba(245,240,232,0.9), 0 0px 24px rgba(245,240,232,0.7)',
+              fontFamily: "'Shippori Mincho', serif", fontSize: 11, color: 'var(--ink)',
+              letterSpacing: '0.2em', whiteSpace: 'nowrap', marginBottom: 8,
             }}>{depthState.authorText}</div>
           </div>
         </div>
@@ -921,12 +919,11 @@ export default function Home() {
           className="ltag"
           onClick={() => setMapOpen(true)}
           style={{
-            fontFamily: "'Shippori Mincho', serif", fontSize: 10, color: 'var(--ink-soft)',
-            opacity: showLtag ? 0.68 : 0, marginBottom: 16,
+            fontFamily: "'Shippori Mincho', serif", fontSize: 10, color: 'var(--ink)',
+            opacity: showLtag ? 1 : 0, marginBottom: 16,
             display: 'inline-flex', alignItems: 'center', gap: 10,
             transition: showLtag ? 'opacity 0.9s' : 'none', letterSpacing: '0.28em', textTransform: 'uppercase',
             cursor: 'pointer', pointerEvents: 'all', minHeight: 44,
-            textShadow: '0 1px 8px rgba(245,240,232,0.9), 0 0px 24px rgba(245,240,232,0.7)',
           }}
         >
           <div className="ltag-rule" style={{ width: 20, height: 1, background: 'var(--gold)', flexShrink: 0, opacity: 0.9 }} />
@@ -966,10 +963,9 @@ export default function Home() {
 
         {/* Author */}
         <div style={{
-          fontFamily: "'Shippori Mincho', serif", fontSize: 11, color: 'var(--ink-soft)',
-          opacity: showAuthor ? 0.5 : 0, transition: showAuthor ? 'opacity 0.8s' : 'none',
+          fontFamily: "'Shippori Mincho', serif", fontSize: 11, color: 'var(--ink)',
+          opacity: showAuthor ? 1 : 0, transition: showAuthor ? 'opacity 0.8s' : 'none',
           letterSpacing: '0.2em', whiteSpace: 'nowrap', marginBottom: 8,
-          textShadow: '0 1px 8px rgba(245,240,232,0.9), 0 0px 24px rgba(245,240,232,0.7)',
         }}>{authorText}</div>
       </div>
 
