@@ -752,7 +752,7 @@ export default function Home() {
           {/* Parchment wash */}
           <div style={{
             position: 'absolute', inset: 0,
-            background: 'linear-gradient(to top, rgba(245,240,232,0.95) 0%, rgba(245,240,232,0.85) 12%, rgba(245,240,232,0.60) 24%, rgba(245,240,232,0.20) 36%, rgba(245,240,232,0.04) 50%, rgba(245,240,232,0.0) 100%)',
+            background: 'linear-gradient(to top, rgba(245,240,232,0.98) 0%, rgba(245,240,232,0.95) 8%, rgba(245,240,232,0.85) 16%, rgba(245,240,232,0.65) 26%, rgba(245,240,232,0.30) 36%, rgba(245,240,232,0.08) 48%, rgba(245,240,232,0.0) 60%, rgba(245,240,232,0.0) 100%)',
             zIndex: 1,
           }} />
           {/* Outgoing haiku content — mirrors haiku-stage layout */}
@@ -816,7 +816,7 @@ export default function Home() {
         >
           <div style={{
             position: 'absolute', inset: 0,
-            background: 'linear-gradient(to top, rgba(245,240,232,0.95) 0%, rgba(245,240,232,0.85) 12%, rgba(245,240,232,0.60) 24%, rgba(245,240,232,0.20) 36%, rgba(245,240,232,0.04) 50%, rgba(245,240,232,0.0) 100%)',
+            background: 'linear-gradient(to top, rgba(245,240,232,0.98) 0%, rgba(245,240,232,0.95) 8%, rgba(245,240,232,0.85) 16%, rgba(245,240,232,0.65) 26%, rgba(245,240,232,0.30) 36%, rgba(245,240,232,0.08) 48%, rgba(245,240,232,0.0) 60%, rgba(245,240,232,0.0) 100%)',
             zIndex: 1,
           }} />
         </div>
@@ -844,7 +844,7 @@ export default function Home() {
         {/* Parchment wash — z-index 1, above photo */}
         <div style={{
           position: 'absolute', inset: 0, zIndex: 1,
-          background: 'linear-gradient(to top, rgba(245,240,232,0.95) 0%, rgba(245,240,232,0.85) 12%, rgba(245,240,232,0.60) 24%, rgba(245,240,232,0.20) 36%, rgba(245,240,232,0.04) 50%, rgba(245,240,232,0.0) 100%)',
+          background: 'linear-gradient(to top, rgba(245,240,232,0.98) 0%, rgba(245,240,232,0.95) 8%, rgba(245,240,232,0.85) 16%, rgba(245,240,232,0.65) 26%, rgba(245,240,232,0.30) 36%, rgba(245,240,232,0.08) 48%, rgba(245,240,232,0.0) 60%, rgba(245,240,232,0.0) 100%)',
         }} />
       </div>
 
