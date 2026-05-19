@@ -126,7 +126,19 @@ async function buildJourneyFromPool(haikus: HaikuPost[], placeName?: string): Pr
     const res = await fetch('/api/journey', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ posts: pool, placeName: placeName || '' }),
+      body: JSON.stringify({
+        posts: pool.map(p => ({
+          id: p.id,
+          place_id: p.place_id,
+          line_1: p.line_1,
+          line_2: p.line_2,
+          line_3: p.line_3,
+          author: p.author,
+          created_at: p.created_at,
+          places: p.places ? { name: p.places.name, city: p.places.city } : undefined,
+        })),
+        placeName: placeName || ''
+      }),
     });
     const data = await res.json();
     const seq = (data.seq || [])
