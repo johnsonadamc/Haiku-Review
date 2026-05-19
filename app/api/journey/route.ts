@@ -31,7 +31,21 @@ export async function POST(req: NextRequest) {
   }));
 
   try {
-    const prompt = `Curate a poetic journey through these haikus connected by "${threadType}". Start near "${placeName || 'any'}". Data: ${JSON.stringify(data)}. Return ${n} IDs ordered by this theme. For each after the first, write a 5-8 word poetic bridge. JSON only: {"type":"${threadType}","seq":[ids...],"conn":["","bridge",...]} IDs: [${data.map(x => JSON.stringify(x.id)).join(',')}]. Exactly ${n} IDs, exactly ${n} conn strings, first always "".`;
+    const leanPosts = posts.map((p: Record<string, unknown>) => ({
+      id: p.id,
+      place_id: p.place_id,
+      line_1: p.line_1,
+      line_2: p.line_2,
+      line_3: p.line_3,
+      author: p.author,
+      created_at: p.created_at,
+      places: p.places ? {
+        name: (p.places as Record<string, unknown>).name,
+        city: (p.places as Record<string, unknown>).city,
+      } : undefined,
+    }));
+
+    const prompt = `Curate a poetic journey through these haikus connected by "${threadType}". Start near "${placeName || 'any'}". Data: ${JSON.stringify(leanPosts)}. Return ${n} IDs ordered by this theme. For each after the first, write a 5-8 word poetic bridge. JSON only: {"type":"${threadType}","seq":[ids...],"conn":["","bridge",...]} IDs: [${data.map(x => JSON.stringify(x.id)).join(',')}]. Exactly ${n} IDs, exactly ${n} conn strings, first always "".`;
 
     const anthropicCall = client.messages.create({
       model: 'claude-sonnet-4-6',
