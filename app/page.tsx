@@ -746,13 +746,13 @@ export default function Home() {
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundColor: 'var(--parchment)',
-            filter: depthState.bgSrc ? 'saturate(0.6) brightness(1.12) contrast(0.88)' : undefined,
+            filter: depthState.bgSrc ? 'saturate(0.85) brightness(1.02) contrast(0.95)' : undefined,
           }}
         >
           {/* Parchment wash */}
           <div style={{
             position: 'absolute', inset: 0,
-            background: 'linear-gradient(to top, rgba(245,240,232,0.97) 0%, rgba(245,240,232,0.88) 22%, rgba(245,240,232,0.62) 48%, rgba(245,240,232,0.2) 72%, rgba(245,240,232,0.04) 100%)',
+            background: 'linear-gradient(to top, rgba(245,240,232,0.95) 0%, rgba(245,240,232,0.85) 12%, rgba(245,240,232,0.60) 24%, rgba(245,240,232,0.20) 36%, rgba(245,240,232,0.04) 50%, rgba(245,240,232,0.0) 100%)',
             zIndex: 1,
           }} />
           {/* Outgoing haiku content — mirrors haiku-stage layout */}
@@ -811,12 +811,12 @@ export default function Home() {
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundColor: 'var(--parchment)',
-            filter: timelineSlideState.bgSrc ? 'saturate(0.6) brightness(1.12) contrast(0.88)' : undefined,
+            filter: timelineSlideState.bgSrc ? 'saturate(0.85) brightness(1.02) contrast(0.95)' : undefined,
           }}
         >
           <div style={{
             position: 'absolute', inset: 0,
-            background: 'linear-gradient(to top, rgba(245,240,232,0.97) 0%, rgba(245,240,232,0.88) 22%, rgba(245,240,232,0.62) 48%, rgba(245,240,232,0.2) 72%, rgba(245,240,232,0.04) 100%)',
+            background: 'linear-gradient(to top, rgba(245,240,232,0.95) 0%, rgba(245,240,232,0.85) 12%, rgba(245,240,232,0.60) 24%, rgba(245,240,232,0.20) 36%, rgba(245,240,232,0.04) 50%, rgba(245,240,232,0.0) 100%)',
             zIndex: 1,
           }} />
         </div>
@@ -838,13 +838,13 @@ export default function Home() {
           style={{
             position: 'absolute', inset: 0, width: '100%', height: '100%',
             objectFit: 'cover', opacity: bgVisible ? 1 : 0, transition: 'opacity 1.4s ease',
-            filter: 'saturate(0.6) brightness(1.12) contrast(0.88)',
+            filter: 'saturate(0.85) brightness(1.02) contrast(0.95)',
           }}
         />
         {/* Parchment wash — z-index 1, above photo */}
         <div style={{
           position: 'absolute', inset: 0, zIndex: 1,
-          background: 'linear-gradient(to top, rgba(245,240,232,0.97) 0%, rgba(245,240,232,0.88) 22%, rgba(245,240,232,0.62) 48%, rgba(245,240,232,0.2) 72%, rgba(245,240,232,0.04) 100%)',
+          background: 'linear-gradient(to top, rgba(245,240,232,0.95) 0%, rgba(245,240,232,0.85) 12%, rgba(245,240,232,0.60) 24%, rgba(245,240,232,0.20) 36%, rgba(245,240,232,0.04) 50%, rgba(245,240,232,0.0) 100%)',
         }} />
       </div>
 
