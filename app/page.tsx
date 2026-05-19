@@ -460,33 +460,25 @@ export default function Home() {
     const ni = journeyIndexRef.current + dir;
     if (ni < 0) return;
     if (ni >= journey.seq.length) {
-      if (nextJourneyRef.current) {
-        const newJ = nextJourneyRef.current;
-        nextJourneyRef.current = null;
-        globalJourneyRef.current = newJ;
-        setJourney(newJ);
-        doNavigate(0, '', newJ.type, direction);
-      } else {
-        setIsTransitioning(true);
-        setJourneyLoading(true);
-        setOverlayMounted(true);
-        const poll = () => {
-          if (nextJourneyRef.current) {
-            const newJ = nextJourneyRef.current;
-            nextJourneyRef.current = null;
-            globalJourneyRef.current = newJ;
-            setJourney(newJ);
-            setCi(0);
-            journeyIndexRef.current = 0;
-            setJourneyLoading(false);
-            triggerReveal();
-            setTimeout(() => setIsTransitioning(false), 420);
-          } else {
-            setTimeout(poll, 100);
-          }
-        };
-        setTimeout(poll, 340);
-      }
+      setIsTransitioning(true);
+      setJourneyLoading(true);
+      setOverlayMounted(true);
+      const poll = () => {
+        if (nextJourneyRef.current) {
+          const newJ = nextJourneyRef.current;
+          nextJourneyRef.current = null;
+          globalJourneyRef.current = newJ;
+          setJourney(newJ);
+          setCi(0);
+          journeyIndexRef.current = 0;
+          setJourneyLoading(false);
+          triggerReveal();
+          setTimeout(() => setIsTransitioning(false), 420);
+        } else {
+          setTimeout(poll, 100);
+        }
+      };
+      setTimeout(poll, 340);
       return;
     }
     doNavigate(ni, journey.conn[ni], journey.type, direction);
@@ -623,7 +615,7 @@ export default function Home() {
       const prebuilt = pendingPlaceIdRef.current === place.id ? pendingPlaceJourneyRef.current : null;
       pendingPlaceJourneyRef.current = null;
       pendingPlaceIdRef.current = null;
-      const j = prebuilt || await buildJourneyFromPool(posts, place.name);
+      const j = await (prebuilt ? Promise.resolve(prebuilt) : buildJourneyFromPool(posts, place.name));
 
       // Find the most recent haiku from the tapped place and force it to position 0.
       // buildJourneyFromPool passes placeName as an AI hint — not a filter — so the
