@@ -616,6 +616,7 @@ export default function Home() {
       pendingPlaceJourneyRef.current = null;
       pendingPlaceIdRef.current = null;
       const j = await (prebuilt ? Promise.resolve(prebuilt) : buildJourneyFromPool(posts, place.name));
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
       // Find the most recent haiku from the tapped place and force it to position 0.
       // buildJourneyFromPool passes placeName as an AI hint — not a filter — so the
