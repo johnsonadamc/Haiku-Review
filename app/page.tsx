@@ -639,8 +639,12 @@ export default function Home() {
       setCi(0);
       setJourneyLoading(false);
       triggerReveal();
+      // onTransitionEnd may not fire if the opacity transition doesn't run cleanly,
+      // so guarantee overlayMounted clears after 800ms fade + buffer.
+      setTimeout(() => setOverlayMounted(false), 900);
     } catch {
       setJourneyLoading(false);
+      setTimeout(() => setOverlayMounted(false), 900);
     }
   }, [posts, triggerReveal]);
 
