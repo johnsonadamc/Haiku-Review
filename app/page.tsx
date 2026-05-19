@@ -646,10 +646,12 @@ export default function Home() {
       setJourney(j);
       setCi(0);
       setJourneyLoading(false);
-      triggerReveal();
-    } catch {
-      setJourneyLoading(false);
-    }
+setTimeout(() => setOverlayMounted(false), 900);
+triggerReveal();
+} catch {
+  setJourneyLoading(false);
+  setTimeout(() => setOverlayMounted(false), 900);
+}
   }, [posts, triggerReveal]);
 
   // Map tooltip open: fire-and-forget pre-build so journey is ready when user taps Go
