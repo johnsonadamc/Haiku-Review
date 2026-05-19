@@ -766,6 +766,7 @@ export default function Home() {
               opacity: 0.68, marginBottom: 16,
               display: 'inline-flex', alignItems: 'center', gap: 10,
               letterSpacing: '0.28em', textTransform: 'uppercase',
+              textShadow: '0 1px 8px rgba(245,240,232,0.9), 0 0px 24px rgba(245,240,232,0.7)',
             }}>
               <div style={{ width: 20, height: 1, background: 'var(--gold)', flexShrink: 0, opacity: 0.9 }} />
               {depthState.locationText}
@@ -775,20 +776,20 @@ export default function Home() {
               <div style={{
                 fontFamily: "'Shippori Mincho', serif", color: 'var(--ink)',
                 lineHeight: 1.2, display: 'block', whiteSpace: 'nowrap',
-                textShadow: '0 1px 4px rgba(245,240,232,0.55)',
+                textShadow: '0 1px 8px rgba(245,240,232,0.9), 0 0px 24px rgba(245,240,232,0.7)',
                 fontSize: 'clamp(22px, 3vw, 42px)', fontWeight: 500,
               }}>{depthState.lines[0]}</div>
               <div style={{
                 fontFamily: "'Shippori Mincho', serif", color: 'var(--ink)',
                 lineHeight: 1.2, display: 'block', whiteSpace: 'nowrap',
-                textShadow: '0 1px 4px rgba(245,240,232,0.55)',
+                textShadow: '0 1px 8px rgba(245,240,232,0.9), 0 0px 24px rgba(245,240,232,0.7)',
                 fontSize: 'clamp(19px, 2.6vw, 37px)', fontWeight: 400,
                 paddingLeft: 'clamp(10px, 1.4vw, 20px)',
               }}>{depthState.lines[1]}</div>
               <div style={{
                 fontFamily: "'Shippori Mincho', serif", color: 'var(--ink)',
                 lineHeight: 1.2, display: 'block', whiteSpace: 'nowrap',
-                textShadow: '0 1px 4px rgba(245,240,232,0.55)',
+                textShadow: '0 1px 8px rgba(245,240,232,0.9), 0 0px 24px rgba(245,240,232,0.7)',
                 fontSize: 'clamp(17px, 2.3vw, 33px)', fontWeight: 400,
                 paddingLeft: 'clamp(20px, 2.8vw, 38px)',
               }}>{depthState.lines[2]}</div>
@@ -797,6 +798,7 @@ export default function Home() {
             <div style={{
               fontFamily: "'Shippori Mincho', serif", fontSize: 11, color: 'var(--ink-soft)',
               opacity: 0.5, letterSpacing: '0.2em', whiteSpace: 'nowrap', marginBottom: 8,
+              textShadow: '0 1px 8px rgba(245,240,232,0.9), 0 0px 24px rgba(245,240,232,0.7)',
             }}>{depthState.authorText}</div>
           </div>
         </div>
@@ -924,6 +926,7 @@ export default function Home() {
             display: 'inline-flex', alignItems: 'center', gap: 10,
             transition: showLtag ? 'opacity 0.9s' : 'none', letterSpacing: '0.28em', textTransform: 'uppercase',
             cursor: 'pointer', pointerEvents: 'all', minHeight: 44,
+            textShadow: '0 1px 8px rgba(245,240,232,0.9), 0 0px 24px rgba(245,240,232,0.7)',
           }}
         >
           <div className="ltag-rule" style={{ width: 20, height: 1, background: 'var(--gold)', flexShrink: 0, opacity: 0.9 }} />
@@ -938,7 +941,7 @@ export default function Home() {
             opacity: showL0 ? 1 : 0, transform: showL0 ? 'translateY(0)' : 'translateY(12px)',
             transition: showL0 ? 'opacity 1s cubic-bezier(0.22,1,0.36,1), transform 1s cubic-bezier(0.22,1,0.36,1)' : 'none',
             lineHeight: 1.2, display: 'block', whiteSpace: 'nowrap',
-            textShadow: '0 1px 4px rgba(245,240,232,0.55)',
+            textShadow: '0 1px 8px rgba(245,240,232,0.9), 0 0px 24px rgba(245,240,232,0.7)',
             fontSize: 'clamp(22px, 3vw, 42px)', fontWeight: 500,
           }}>{lines[0]}</div>
           <div style={{
@@ -946,7 +949,7 @@ export default function Home() {
             opacity: showL1 ? 1 : 0, transform: showL1 ? 'translateY(0)' : 'translateY(12px)',
             transition: showL1 ? 'opacity 1s cubic-bezier(0.22,1,0.36,1), transform 1s cubic-bezier(0.22,1,0.36,1)' : 'none',
             lineHeight: 1.2, display: 'block', whiteSpace: 'nowrap',
-            textShadow: '0 1px 4px rgba(245,240,232,0.55)',
+            textShadow: '0 1px 8px rgba(245,240,232,0.9), 0 0px 24px rgba(245,240,232,0.7)',
             fontSize: 'clamp(19px, 2.6vw, 37px)', fontWeight: 400,
             paddingLeft: 'clamp(10px, 1.4vw, 20px)',
           }}>{lines[1]}</div>
@@ -955,7 +958,7 @@ export default function Home() {
             opacity: showL2 ? 1 : 0, transform: showL2 ? 'translateY(0)' : 'translateY(12px)',
             transition: showL2 ? 'opacity 1s cubic-bezier(0.22,1,0.36,1), transform 1s cubic-bezier(0.22,1,0.36,1)' : 'none',
             lineHeight: 1.2, display: 'block', whiteSpace: 'nowrap',
-            textShadow: '0 1px 4px rgba(245,240,232,0.55)',
+            textShadow: '0 1px 8px rgba(245,240,232,0.9), 0 0px 24px rgba(245,240,232,0.7)',
             fontSize: 'clamp(17px, 2.3vw, 33px)', fontWeight: 400,
             paddingLeft: 'clamp(20px, 2.8vw, 38px)',
           }}>{lines[2]}</div>
@@ -966,6 +969,7 @@ export default function Home() {
           fontFamily: "'Shippori Mincho', serif", fontSize: 11, color: 'var(--ink-soft)',
           opacity: showAuthor ? 0.5 : 0, transition: showAuthor ? 'opacity 0.8s' : 'none',
           letterSpacing: '0.2em', whiteSpace: 'nowrap', marginBottom: 8,
+          textShadow: '0 1px 8px rgba(245,240,232,0.9), 0 0px 24px rgba(245,240,232,0.7)',
         }}>{authorText}</div>
       </div>
 
