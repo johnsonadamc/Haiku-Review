@@ -339,7 +339,27 @@ export default function Home() {
           } catch { /* fall through to normal journey */ }
         }
 
-        return buildJourneyFromPool(haikus);
+        // Non-QR initial load: reveal an instant shuffle journey the moment
+        // haikus arrive (gated only on the animation) — no Anthropic wait.
+        // The AI-threaded journey builds in the background and becomes the
+        // next journey, picked up seamlessly at the end of this first one.
+        const initialPool = mostRecentPerPlace(haikus);
+        const initialShuffled = [...initialPool]
+          .sort(() => Math.random() - 0.5)
+          .slice(0, Math.min(6, initialPool.length));
+        const instantJourney: Journey = {
+          seq: initialShuffled,
+          conn: initialShuffled.map((_, i) => i === 0 ? '' : BRIDGES[i - 1] || 'the thread continues'),
+          type: 'emotional resonance',
+        };
+        journeyBuildingRef.current = true;
+        buildJourneyFromPool(haikus).then(j => {
+          nextJourneyRef.current = j;
+          journeyBuildingRef.current = false;
+        });
+        state.journey = instantJourney;
+        tryReveal();
+        return null;
       })
       .then(j => {
         if (!j) return; // QR path already called tryReveal above
