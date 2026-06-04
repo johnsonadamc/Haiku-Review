@@ -495,22 +495,27 @@ export default function Home() {
       setIsTransitioning(true);
       setJourneyLoading(true);
       setOverlayMounted(true);
+      const startTime = Date.now();
+      const MIN_DISPLAY = 2500;
       const poll = () => {
         if (nextJourneyRef.current) {
           const newJ = nextJourneyRef.current;
           nextJourneyRef.current = null;
           globalJourneyRef.current = newJ;
-          setJourney(newJ);
-          setCi(0);
-          journeyIndexRef.current = 0;
-          setJourneyLoading(false);
-          triggerReveal();
-          setTimeout(() => setIsTransitioning(false), 420);
+          const remaining = Math.max(0, MIN_DISPLAY - (Date.now() - startTime));
+          setTimeout(() => {
+            setJourney(newJ);
+            setCi(0);
+            journeyIndexRef.current = 0;
+            setJourneyLoading(false);
+            triggerReveal();
+            setTimeout(() => setIsTransitioning(false), 420);
+          }, remaining);
         } else {
           setTimeout(poll, 100);
         }
       };
-      setTimeout(poll, 340);
+      setTimeout(poll, 100);
       return;
     }
     doNavigate(ni, journey.conn[ni], journey.type, direction);
@@ -644,11 +649,11 @@ export default function Home() {
     setJourneyLoading(true);
     setOverlayMounted(true);
     try {
+      const startTime = Date.now();
       const prebuilt = pendingPlaceIdRef.current === place.id ? pendingPlaceJourneyRef.current : null;
       pendingPlaceJourneyRef.current = null;
       pendingPlaceIdRef.current = null;
       const j = await (prebuilt ? Promise.resolve(prebuilt) : buildJourneyFromPool(posts, place.name));
-      await new Promise(resolve => setTimeout(resolve, 1500));
 
       // Find the most recent haiku from the tapped place and force it to position 0.
       // buildJourneyFromPool passes placeName as an AI hint — not a filter — so the
@@ -670,6 +675,7 @@ export default function Home() {
       setThreadType(j.type);
       setJourney(j);
       setCi(0);
+      await new Promise(resolve => setTimeout(resolve, Math.max(0, 2500 - (Date.now() - startTime))));
       setJourneyLoading(false);
       triggerReveal();
       // onTransitionEnd may not fire if the opacity transition doesn't run cleanly,
