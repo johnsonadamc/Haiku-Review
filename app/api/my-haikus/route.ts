@@ -10,7 +10,7 @@ export async function GET() {
     const { data, error } = await supabase
       .from('haikus')
       .select('*, places(name, city)')
-      .eq('user_id', user.id)
+      .or(`user_id.eq.${user.id},author_email.eq.${user.email}`)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
