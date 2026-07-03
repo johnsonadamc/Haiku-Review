@@ -73,7 +73,13 @@ export default function YourHaikus({ open, onClose }: Props) {
 
         {!loading && haikus.length === 0 && (
           <div style={{ ...labelStyle, opacity: 0.45, lineHeight: 1.8 }}>
-            no haikus found for this account
+            nothing to show here yet —
+            <span style={{
+              display: 'block', marginTop: 10, opacity: 0.7,
+              letterSpacing: 'normal', textTransform: 'none',
+            }}>
+              if you&rsquo;ve left haikus before, submit another and follow the link in your email to gather them all.
+            </span>
           </div>
         )}
 
