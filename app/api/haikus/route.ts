@@ -55,29 +55,11 @@ export async function POST(req: NextRequest) {
       place = newPlace;
     }
 
-    // resolve user_id from email if provided (silently — never blocks submission)
-    let userId: string | null = null;
-    if (author_email && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      try {
-        const admin = createAdminClient();
-        const { data: listData } = await admin.auth.admin.listUsers();
-        const existingUser = listData?.users?.find(u => u.email === author_email);
-        if (existingUser) {
-          userId = existingUser.id;
-        } else {
-          const { data: invited } = await admin.auth.admin.inviteUserByEmail(author_email);
-          userId = invited?.user?.id ?? null;
-        }
-      } catch {
-        // auth lookup failure never blocks submission
-      }
-    }
-
     const { data: haiku, error: haikuError } = await supabase.from('haikus').insert({
       place_id: place.id, line_1, line_2, line_3,
       author: author || null,
       photo_url: photo_url || null,
-      user_id: userId,
+      author_email: author_email || null,
     }).select().single();
     if (haikuError) throw haikuError;
 
