@@ -1,6 +1,6 @@
 # CLAUDE.md — Haiku Review
 
-Last updated: May 2026
+Last updated: July 2026
 
 ---
 
@@ -45,15 +45,16 @@ The app is deployed and live at **haikureview.online** (Vercel). Dev environment
 - Mobile-first responsive design
 - Deployed to Vercel at haikureview.online
 - Domain: haikureview.online (Squarespace DNS → Vercel)
+- Resend SMTP connected to Supabase — branded magic-link emails from noreply@haikureview.online, domain verified in Resend
+- Magic-link auth fully working end to end (submit → email → callback → claim → Your Haikus)
+- Durable claim-by-email haiku ownership
 
 **Needs attention / in progress:**
 - Photo upload to Supabase storage (wired but real-file persistence unverified)
-- Resend email integration not yet configured (Supabase still sending default magic-link emails)
 - Loading animation occasionally glitchy on some transitions (known, low priority)
 
 **Not yet built:**
 - QR code generation for physical placement
-- Resend SMTP connected to Supabase for branded magic-link emails
 
 ---
 
@@ -280,9 +281,12 @@ Apply identically to main viewer, depth exit overlay, and timeline exit overlay.
 
 ### 7. Magic-Link Auth (Optional)
 - Email field in submit panel — optional, never required
+- Haikus store a plain `author_email` string at submission time — no user creation at submit. This avoids a race condition between `inviteUserByEmail` and the `signInWithOtp` magic link that could leave `user_id` null or mismatched.
 - Supabase `signInWithOtp` → magic link → `/auth/callback` → `/?haikus=mine`
-- "Your Haikus" overlay: lists place · city, date, first line. No counts.
-- Resend SMTP not yet configured — still using Supabase default sender
+- On magic-link login, `/auth/callback` claims all haikus matching the user's email where `user_id` is null (via admin client): `UPDATE haikus SET user_id = <user.id> WHERE author_email = <user.email> AND user_id IS NULL`. Claim failure never blocks the redirect.
+- `/api/my-haikus` matches on `user_id` OR `author_email` — so a user's haikus appear even if the claim hasn't run yet
+- "Your Haikus" overlay: three-line parchment cards (place · city, all three lines with progressive indent, date). Softened empty state frames re-submission as the way to gather past haikus. No counts, display-only, entries not clickable.
+- Resend SMTP connected to Supabase — branded magic-link emails from `noreply@haikureview.online`, domain verified in Resend
 
 ---
 
@@ -311,6 +315,7 @@ haikus (
   photo_url text,
   held_count int default 0,
   user_id uuid references auth.users,   -- nullable
+  author_email text,                    -- nullable — plain email at submit, used to claim on login
   created_at timestamptz default now()
 )
 
@@ -465,6 +470,18 @@ All must also be set in Vercel dashboard → Environment Variables for productio
 
 **Claude Code pushes to feature branches** (`claude/haiku-review-setup-D6T2O`). Always merge to main manually: `git fetch origin && git merge origin/claude/haiku-review-setup-D6T2O --no-edit && git push`.
 
+**Canonical host is [www.haikureview.online](https://www.haikureview.online).** Supabase Site URL and Redirect URLs must use the www host, or magic-link codes fall back to `/` instead of `/auth/callback` and the claim never runs.
+
+**Journey payload to `/api/journey` must strip `photo_url`.** Base64 photos blow past Vercel's request body limit and cause 413. `buildJourneyFromPool` sends lean objects only (`id`, `place_id`, lines, `author`, `created_at`, `places.name/city`).
+
+**`advanceJourney` has NO fast path.** Every between-journey reload goes through the loading overlay with a 2500ms minimum display, even when the next journey is pre-built.
+
+**`handlePlaceClick` enforces a 2500ms minimum overlay display** (map→journey).
+
+**Initial (non-QR) load reveals an instant random-shuffle journey** the moment haikus arrive, gated only on the animation; the AI journey builds in the background and becomes the next journey. Avoids paying Anthropic latency on first paint.
+
+**`holds_haiku_id_fkey` and `haikus_place_id_fkey` are set `ON DELETE CASCADE`.**
+
 ---
 
 ## Seed Data
@@ -486,13 +503,15 @@ Script is safe to run multiple times — skips duplicates, updates photo_url if 
 
 ## Remaining Work (Priority Order)
 
-1. **Resend email** — connect Resend SMTP to Supabase for branded magic-link emails. Have Resend account. Need to verify `haikureview.online` domain in Resend, add DNS records in Squarespace, configure SMTP in Supabase Auth settings. Sender: `hello@haikureview.online`.
+1. **QR code generation** — generate QR codes encoding `?place=<google_place_id>` URLs for physical placement at real locations. This is the primary distribution mechanism.
 
-2. **QR code generation** — generate QR codes encoding `?place=<google_place_id>` URLs for physical placement at real locations. This is the primary distribution mechanism.
+2. **Photo upload verification** — confirm Supabase storage is actually persisting uploaded photos end-to-end with real files. Move base64 photos to Supabase Storage buckets (not just base64 previews).
 
-3. **Photo upload verification** — confirm Supabase storage is actually persisting uploaded photos end-to-end with real files (not just base64 previews).
+3. **Seed more real content** — 23 seed haikus is thin for a public launch. Target 50–100 real haikus across 15–20 real places before showing to anyone.
 
-4. **Seed more real content** — 23 seed haikus is thin for a public launch. Target 50–100 real haikus across 15–20 real places before showing to anyone.
+### Tabled Ideas
+
+**Tabled — making "Your Haikus" entries tap into the map centered on that place.** Decided against for now: adds coupling/complexity and risks turning a quiet keepsake screen into a navigation hub. Revisit post-launch only if requested.
 
 ---
 
