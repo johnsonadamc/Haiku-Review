@@ -77,11 +77,12 @@ export default function YourHaikus({ open, onClose }: Props) {
           </div>
         )}
 
-        {!loading && haikus.map((h, i) => (
+        {!loading && haikus.map((h) => (
           <div key={h.id} style={{
-            paddingBottom: 20,
-            marginBottom: 20,
-            borderBottom: i < haikus.length - 1 ? '1px solid rgba(30,26,20,0.06)' : 'none',
+            background: 'rgba(30,26,20,0.015)',
+            border: '1px solid rgba(30,26,20,0.08)',
+            padding: '20px 22px',
+            marginBottom: 14,
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
               <div style={{ width: 14, height: 1, background: 'var(--gold)', opacity: 0.5 }} />
@@ -90,15 +91,10 @@ export default function YourHaikus({ open, onClose }: Props) {
                 {h.places?.city ? ` · ${h.places.city}` : ''}
               </span>
             </div>
-            <div style={{
-              fontFamily: "'Shippori Mincho', serif",
-              fontSize: 'clamp(14px, 2vw, 18px)',
-              color: 'var(--ink)',
-              lineHeight: 1.7,
-            }}>
-              {h.line_1}
-            </div>
-            <div style={{ ...labelStyle, opacity: 0.35, marginTop: 8 }}>
+            <div style={{ fontFamily: "'Shippori Mincho', serif", fontSize: 'clamp(14px, 2vw, 18px)', color: 'var(--ink)', lineHeight: 1.7, whiteSpace: 'nowrap' }}>{h.line_1}</div>
+            <div style={{ fontFamily: "'Shippori Mincho', serif", fontSize: 'clamp(14px, 2vw, 18px)', color: 'var(--ink)', lineHeight: 1.7, whiteSpace: 'nowrap', paddingLeft: 'clamp(8px,1.2vw,16px)' }}>{h.line_2}</div>
+            <div style={{ fontFamily: "'Shippori Mincho', serif", fontSize: 'clamp(14px, 2vw, 18px)', color: 'var(--ink)', lineHeight: 1.7, whiteSpace: 'nowrap', paddingLeft: 'clamp(16px,2.4vw,32px)' }}>{h.line_3}</div>
+            <div style={{ ...labelStyle, opacity: 0.35, marginTop: 10 }}>
               {new Date(h.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
             </div>
           </div>
