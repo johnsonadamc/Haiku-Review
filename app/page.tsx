@@ -1056,7 +1056,8 @@ export default function Home() {
         fontFamily: "'Shippori Mincho', serif", fontSize: 11, letterSpacing: '0.25em',
         textTransform: 'uppercase', color: 'var(--ink-soft)',
         opacity: toastVisible ? 1 : 0, transition: 'all 0.3s cubic-bezier(0.22,1,0.36,1)',
-        zIndex: 1000, pointerEvents: 'none', whiteSpace: 'nowrap',
+        zIndex: 1000, pointerEvents: 'none', maxWidth: 'min(90vw, 360px)', width: 'max-content',
+        textAlign: 'center', lineHeight: 1.5,
       }}>{toastMsg}</div>
 
       {/* Map overlay */}
